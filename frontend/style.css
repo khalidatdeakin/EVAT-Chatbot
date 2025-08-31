@@ -59,6 +59,20 @@ header { background:#fff; border-bottom:1px solid var(--border); }
 .user .message{ background:#0b7b79; color:#fff; border-color:#0b7b79; } /* teal user bubble */
 .bot .message { background:#f8fafc; color:var(--text); }
 
+/* Avatars next to messages */
+.row{ display:flex; gap:8px; align-items:flex-start; }  /* ensure spacing with avatar */
+
+.avatar{
+  width:32px; height:32px;
+  border-radius:50%;
+  display:grid; place-items:center;
+  font-size:16px; font-weight:700;
+  flex:0 0 32px;
+  box-shadow:0 1px 2px rgba(0,0,0,.06);
+}
+.avatar.bot{ background:#10b981; color:#fff; }          /* green circle with ⚡ */
+.avatar.user{ background:#0b7b79; color:#fff; }          /* only if you later add user avatar */
+
 .timestamp{
   align-self:center;
   font-size:12px; color:var(--muted);
