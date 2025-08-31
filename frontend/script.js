@@ -60,9 +60,7 @@ function addMessage(text, who = "bot"){
 
 /***** QUICK REPLIES *****/
 function createQuickReplyButtons(buttons = [
-  { label: "Get Directions",     payload: "/get_directions" },
-  { label: "Show Traffic",       payload: "/show_traffic" },
-  { label: "Check Availability", payload: "/check_availability" }
+  { label: "Get Directions", payload: "/get_directions" }
 ]){
   quickEl.innerHTML = "";
   buttons.forEach(({label, payload})=>{
