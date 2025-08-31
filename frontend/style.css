@@ -142,7 +142,7 @@ header { background:#fff; border-bottom:1px solid var(--border); }
 }
 #clear-btn{ background:#64748b; }
 #clear-btn:hover{ filter:brightness(.95); }
-#send-btn{ background:#0ea5e9; }
+#send-btn{ background:var(--success); }   /* green */
 #send-btn:hover{ filter:brightness(.95); }
 
 /* Small screens */
