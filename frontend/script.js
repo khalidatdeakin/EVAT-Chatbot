@@ -183,10 +183,18 @@ async function sendMessage(message){
 
         // Render suggested buttons returned by Rasa (optional)
         if (Array.isArray(msg.buttons)){
-          createQuickReplyButtons(msg.buttons.map(b => ({
-            label: b.title, payload: b.payload
-          })));
-        }
+  const allowed = msg.buttons.filter(b =>
+    (b.payload && b.payload.startsWith("/get_directions")) ||
+    (b.title && /get directions/i.test(b.title))
+  ).map(b => ({ label: b.title || "Get Directions", payload: b.payload || "/get_directions" }));
+
+  if (allowed.length) {
+    createQuickReplyButtons(allowed);
+  } else {
+    // if bot suggested other buttons, ignore them and keep our default
+    createQuickReplyButtons();
+  }
+}
 
         // Custom payload with stations
         if (msg.custom && Array.isArray(msg.custom.stations)){
