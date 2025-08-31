@@ -32,16 +32,28 @@ function scrollToBottom(){ chatContainer.scrollTop = chatContainer.scrollHeight;
 function autoresize(){ input.style.height = "auto"; input.style.height = (input.scrollHeight) + "px"; }
 
 /***** CHAT RENDER *****/
-function addMessage(text, who="bot"){
+function addMessage(text, who = "bot"){
   const row = document.createElement("div");
   row.className = `row ${who}-row`;
+
+  // Add a small brand avatar for bot messages
+  if (who === "bot") {
+    const avatar = document.createElement("div");
+    avatar.className = "avatar bot";
+    avatar.textContent = "⚡";            // same logo as title
+    row.appendChild(avatar);
+  }
+
   const bubbleWrap = document.createElement("div");
   bubbleWrap.className = who;
+
   const bubble = document.createElement("div");
   bubble.className = "message";
   bubble.textContent = text;
+
   bubbleWrap.appendChild(bubble);
   row.appendChild(bubbleWrap);
+
   chatEl.appendChild(row);
   scrollToBottom();
 }
