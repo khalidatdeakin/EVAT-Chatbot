@@ -75,7 +75,12 @@ header{ background:#fff; border-bottom:1px solid var(--border); }
   overflow-wrap:break-word;      /* wrap long words/URLs only */
   word-break:normal;
 }
-.user .message{ background:#0b7b79; color:#fff; border-color:#0b7b79; }
+.user .message{
+  background:#0b7b79;
+  color:#fff;
+  border-color:#0b7b79;
+  text-align: right;        /* NEW */
+}
 .bot  .message{ background:#f8fafc; color:var(--text); }
 
 /* Standardize bot bubble width (80% of chat column) */
