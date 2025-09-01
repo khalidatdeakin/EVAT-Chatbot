@@ -54,8 +54,8 @@ header { background:#fff; border-bottom:1px solid var(--border); }
   box-shadow:0 1px 3px rgba(0,0,0,.06);
   padding:12px 14px;
   white-space: pre-wrap;
-  overflow-wrap: anywhere;   /* NEW */
-  word-break: break-word;    /* NEW */
+  overflow-wrap: break-word;   /* only break long words/URLs */
+  word-break: normal;
 }
 .row{ display:flex; gap:8px; align-items:flex-start; width:100%; }
 .user-row{ justify-content:flex-end; }
