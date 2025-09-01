@@ -60,6 +60,12 @@ header { background:#fff; border-bottom:1px solid var(--border); }
 .user .message{ background:#0b7b79; color:#fff; border-color:#0b7b79; } /* teal user bubble */
 .bot .message { background:#f8fafc; color:var(--text); }
 
+/* Standardised width for all bot message bubbles */
+.bot-row .message{
+  width: var(--bot-bubble-width);
+  max-width: var(--bot-bubble-width);
+}
+
 /* Avatars next to messages */
 .row{ display:flex; gap:8px; align-items:flex-start; }  /* ensure spacing with avatar */
 
