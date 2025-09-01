@@ -4,16 +4,17 @@
   --text:#0f172a;
   --muted:#64748b;
   --border:#e5e7eb;
-  --bot-bubble-width: 80%;
-  --primary:#0ea5e9;     /* teal-blue accent for dots etc. */
-  --success:#10b981;  /* same green as the bot logo background */
+
+  --bot-bubble-width: 80%;   /* width of bot bubbles relative to chat column */
+  --primary:#0ea5e9;         /* accent (pager dots, etc.) */
+  --success:#10b981;         /* shared green: avatar, Send, Get Directions, chips */
   --chip:#ffffff;
   --chip-border:#e2e8f0;
 }
 
-* { box-sizing:border-box; }
-html, body { height:100%; }
-body {
+*{ box-sizing:border-box; }
+html,body{ height:100%; }
+body{
   margin:0;
   background:var(--bg);
   color:var(--text);
@@ -21,15 +22,15 @@ body {
 }
 
 /* Header */
-header { background:#fff; border-bottom:1px solid var(--border); }
-.brand {
+header{ background:#fff; border-bottom:1px solid var(--border); }
+.brand{
   max-width:780px; margin:0 auto;
   display:flex; gap:12px; align-items:center;
   padding:12px 16px;
 }
-.logo { font-size:24px; }
-.title { font-weight:700; font-size:22px; color:var(--text); }
-.subtitle { font-size:14px; color:var(--muted); }
+.logo{ font-size:24px; }
+.title{ font-weight:700; font-size:22px; color:var(--text); }
+.subtitle{ font-size:14px; color:var(--muted); }
 
 /* App shell */
 .shell{
@@ -46,6 +47,23 @@ header { background:#fff; border-bottom:1px solid var(--border); }
   display:flex; flex-direction:column; gap:12px;
 }
 
+/* Chat rows */
+.row{ display:flex; gap:8px; align-items:flex-start; width:100%; }
+.user-row{ justify-content:flex-end; }
+
+/* Avatars */
+.avatar{
+  width:32px; height:32px;
+  border-radius:50%;
+  display:grid; place-items:center;
+  font-size:16px; font-weight:700;
+  flex:0 0 32px;                   /* fixed; prevents stretching */
+  box-shadow:0 1px 2px rgba(0,0,0,.06);
+}
+.avatar.bot{ background:var(--success); color:#fff; }
+.avatar.user{ background:#0b7b79; color:#fff; }
+
+/* Messages */
 .message{
   max-width:86%;
   background:var(--surface);
@@ -53,41 +71,20 @@ header { background:#fff; border-bottom:1px solid var(--border); }
   border-radius:16px;
   box-shadow:0 1px 3px rgba(0,0,0,.06);
   padding:12px 14px;
-  white-space: pre-wrap;
-  overflow-wrap: break-word;   /* only break long words/URLs */
-  word-break: normal;
+  white-space:pre-wrap;          /* keep real newlines */
+  overflow-wrap:break-word;      /* wrap long words/URLs only */
+  word-break:normal;
 }
-.row{ display:flex; gap:8px; align-items:flex-start; width:100%; }
-.user-row{ justify-content:flex-end; }
-.user .message{ background:#0b7b79; color:#fff; border-color:#0b7b79; } /* teal user bubble */
-.bot .message { background:#f8fafc; color:var(--text); }
+.user .message{ background:#0b7b79; color:#fff; border-color:#0b7b79; }
+.bot  .message{ background:#f8fafc; color:var(--text); }
 
-/* Avatars next to messages */
-.row{ display:flex; gap:8px; align-items:flex-start; }  /* ensure spacing with avatar */
-
-.avatar{
-  width:32px; height:32px;
-  border-radius:50%;
-  display:grid; place-items:center;
-  font-size:16px; font-weight:700;
-  flex:0 0 32px;
-  box-shadow:0 1px 2px rgba(0,0,0,.06);
+/* Standardize bot bubble width (80% of chat column) */
+/* IMPORTANT: apply to the bot column, not the avatar */
+.bot-row .bot:not(.avatar){
+  flex:0 1 var(--bot-bubble-width);
+  max-width:var(--bot-bubble-width);
 }
-/* Make each row span full width */
-.row{ display:flex; gap:8px; align-items:flex-start; width:100%; }
-
-/* For bot rows: make the message column a fixed fraction (80%) of the row */
-.bot-row .bot{
-  flex: 0 1 var(--bot-bubble-width);
-  max-width: var(--bot-bubble-width);
-}
-
-/* The actual bubble fills that column */
-.bot-row .message{
-  width: 100%;
-}
-.avatar.bot{ background:var(--success); color:#fff; }          /* green circle with ⚡ */
-.avatar.user{ background:#0b7b79; color:#fff; }          /* only if you later add user avatar */
+.bot-row .message{ width:100%; }
 
 .timestamp{
   align-self:center;
@@ -95,20 +92,18 @@ header { background:#fff; border-bottom:1px solid var(--border); }
   margin:6px 0 -2px;
 }
 
-/* Quick replies */
+/* Quick replies (chip) */
 #quick-replies{ display:flex; gap:8px; flex-wrap:wrap; padding:8px 16px; }
 .qr{
-  background: var(--success);
-  color: #fff;
-  border: none;
-  border-radius: 999px;
-  padding: 8px 12px;
-  cursor: pointer;
-  font-size: 14px;
+  background:var(--success);
+  color:#fff;
+  border:none;
+  border-radius:999px;
+  padding:8px 12px;
+  cursor:pointer; font-size:14px;
 }
-.qr:hover { filter: brightness(.95); }
+.qr:hover{ filter:brightness(.95); }
 .qr:disabled{ opacity:.55; cursor:not-allowed; }
-
 
 /* Station cards */
 #station-cards{ display:flex; flex-direction:column; gap:12px; padding:0 16px 8px; }
@@ -120,7 +115,7 @@ header { background:#fff; border-bottom:1px solid var(--border); }
 .sc-head{ display:flex; gap:12px; align-items:center; margin-bottom:8px; }
 .sc-icon{
   width:36px; height:36px; display:grid; place-items:center;
-  border-radius:10px; background:#10b981; color:#fff; font-weight:700;
+  border-radius:10px; background:var(--success); color:#fff; font-weight:700;
 }
 .sc-title{ font-weight:600; color:var(--text); }
 .sc-sub{ color:#475569; font-size:14px; margin-top:2px; }
@@ -169,17 +164,19 @@ header { background:#fff; border-bottom:1px solid var(--border); }
   outline:none;
 }
 #user-input:focus{ border-color:#94a3b8; box-shadow:0 0 0 3px rgba(148,163,184,.25); }
+
 #clear-btn, #send-btn{
-  border:none; background:#0b7b79; color:#fff;
+  border:none; color:#fff;
   width:44px; height:44px; display:grid; place-items:center;
   border-radius:12px; cursor:pointer; font-size:16px;
 }
 #clear-btn{ background:#64748b; }
 #clear-btn:hover{ filter:brightness(.95); }
-#send-btn{ background:var(--success); }   /* green */
+#send-btn{ background:var(--success); }    /* green */
 #send-btn:hover{ filter:brightness(.95); }
 
-/* Small screens */
-@media (max-width: 480px){
+/* Responsive tweaks */
+@media (max-width:480px){
+  :root{ --bot-bubble-width:95%; }
   .sc-metrics{ grid-template-columns:1fr 1fr; }
 }
