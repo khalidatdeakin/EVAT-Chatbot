@@ -55,7 +55,7 @@ header { background:#fff; border-bottom:1px solid var(--border); }
   padding:12px 14px;
   white-space:pre-wrap;
 }
-.row{ display:flex; gap:8px; }
+.row{ display:flex; gap:8px; align-items:flex-start; width:100%; }
 .user-row{ justify-content:flex-end; }
 .user .message{ background:#0b7b79; color:#fff; border-color:#0b7b79; } /* teal user bubble */
 .bot .message { background:#f8fafc; color:var(--text); }
