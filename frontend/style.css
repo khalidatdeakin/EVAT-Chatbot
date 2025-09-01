@@ -70,7 +70,7 @@ header { background:#fff; border-bottom:1px solid var(--border); }
   flex:0 0 32px;
   box-shadow:0 1px 2px rgba(0,0,0,.06);
 }
-.avatar.bot{ background:#10b981; color:#fff; }          /* green circle with ⚡ */
+.avatar.bot{ background:var(--success); color:#fff; }          /* green circle with ⚡ */
 .avatar.user{ background:#0b7b79; color:#fff; }          /* only if you later add user avatar */
 
 .timestamp{
