@@ -270,6 +270,22 @@ form.addEventListener("submit", (e)=>{
 
 input.addEventListener("input", autoresize);
 
+// --- Enter to send, Shift+Enter for newline (IME-safe) ---
+let isComposing = false;
+input.addEventListener("compositionstart", () => (isComposing = true));
+input.addEventListener("compositionend",  () => (isComposing = false));
+
+input.addEventListener("keydown", (e) => {
+  if (isComposing) return;                 // let IME finish composing
+  if (e.key === "Enter" && !e.shiftKey) {  // plain Enter
+    e.preventDefault();                    // stop newline
+    const text = input.value.trim();
+    if (text) {
+      form.requestSubmit();                // triggers your existing submit handler
+    }
+  }
+});
+
 clearBtn.addEventListener("click", ()=>{
   chatEl.innerHTML = "";
   cardsEl.innerHTML = "";
