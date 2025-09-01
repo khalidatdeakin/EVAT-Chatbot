@@ -65,7 +65,7 @@ header{ background:#fff; border-bottom:1px solid var(--border); }
 
 /* Messages */
 .message{
-  max-width:86%;
+  max-width:100%;
   background:var(--surface);
   border:1px solid var(--border);
   border-radius:16px;
