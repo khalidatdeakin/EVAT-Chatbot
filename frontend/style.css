@@ -92,6 +92,17 @@ header{ background:#fff; border-bottom:1px solid var(--border); }
   margin:6px 0 -2px;
 }
 
+/* User message column: same width as bot (80% of chat column) */
+.user-row .user:not(.avatar){
+  flex: 0 1 var(--bot-bubble-width);
+  max-width: var(--bot-bubble-width);
+}
+
+/* User bubble fills the column */
+.user-row .message{
+  width: 100%;
+}
+
 /* Quick replies (chip) */
 #quick-replies{ display:flex; gap:8px; flex-wrap:wrap; padding:8px 16px; }
 .qr{
