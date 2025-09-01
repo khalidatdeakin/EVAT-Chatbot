@@ -73,6 +73,19 @@ header { background:#fff; border-bottom:1px solid var(--border); }
   flex:0 0 32px;
   box-shadow:0 1px 2px rgba(0,0,0,.06);
 }
+/* Make each row span full width */
+.row{ display:flex; gap:8px; align-items:flex-start; width:100%; }
+
+/* For bot rows: make the message column a fixed fraction (80%) of the row */
+.bot-row .bot{
+  flex: 0 1 var(--bot-bubble-width);
+  max-width: var(--bot-bubble-width);
+}
+
+/* The actual bubble fills that column */
+.bot-row .message{
+  width: 100%;
+}
 .avatar.bot{ background:var(--success); color:#fff; }          /* green circle with ⚡ */
 .avatar.user{ background:#0b7b79; color:#fff; }          /* only if you later add user avatar */
 
