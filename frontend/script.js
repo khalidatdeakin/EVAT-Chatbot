@@ -326,7 +326,7 @@ const DUMMY_STATIONS = [
     distance_km: 1.2,
     cost: "$0.45/kWh",
     power: "Up to 150 kW",
-    availability: "available"
+    availability: "yes"
   },
   {
     station_id: "cf-qvm",
@@ -335,7 +335,7 @@ const DUMMY_STATIONS = [
     distance_km: 2.4,
     cost: "$0.42/kWh + $1/min idle",
     power: 75,
-    availability: "busy"
+    availability: "no"
   },
   {
     station_id: "evie-bourke",
@@ -344,7 +344,7 @@ const DUMMY_STATIONS = [
     distance_km: 0.8,
     cost: "$0.55/kWh",
     power: 200,
-    availability: "limited"
+    availability: "yes"
   }
 ];
 
