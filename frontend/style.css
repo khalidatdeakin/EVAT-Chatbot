@@ -142,6 +142,10 @@ header{ background:#fff; border-bottom:1px solid var(--border); }
 }
 .sc-metrics .label{ display:block; color:#64748b; font-size:12px; }
 
+/* Demo/tweak: make metric values bold and tint cost green */
+.sc-metrics .value { display: block; font-weight: 600; }
+.sc-metrics .value.cost { color: var(--success); }
+
 .sc-actions{ display:flex; gap:8px; }
 .btn-primary{
   background:var(--success); color:#fff;
