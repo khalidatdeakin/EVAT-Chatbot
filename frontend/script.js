@@ -304,6 +304,79 @@ function captureLocation(){
   );
 }
 
+/* ===========================
+   DEMO: render fake stations
+   =========================== */
+
+function fmtDistance(km) {
+  if (km == null) return "—";
+  const n = Number(km);
+  return n < 1 ? `${Math.round(n * 1000)} m` : `${n.toFixed(1)} km`;
+}
+function fmtPower(p) {
+  if (p == null) return "—";
+  return (typeof p === "string") ? p : `${p} kW`;
+}
+
+const DUMMY_STATIONS = [
+  {
+    station_id: "cf-melb-central",
+    name: "Melbourne Central — Chargefox",
+    address: "211 La Trobe St, Melbourne VIC 3000",
+    distance_km: 1.2,
+    cost: "$0.45/kWh",
+    power: "Up to 150 kW",
+    availability: "available"
+  },
+  {
+    station_id: "cf-qvm",
+    name: "QVM Car Park — Chargefox",
+    address: "36 Peel St, North Melbourne VIC 3051",
+    distance_km: 2.4,
+    cost: "$0.42/kWh + $1/min idle",
+    power: 75,
+    availability: "busy"
+  },
+  {
+    station_id: "evie-bourke",
+    name: "Bourke Street — Evie",
+    address: "620 Bourke St, Melbourne VIC 3000",
+    distance_km: 0.8,
+    cost: "$0.55/kWh",
+    power: 200,
+    availability: "limited"
+  }
+];
+
+function renderDummyStations() {
+  let container =
+    document.querySelector("#station-cards") ||
+    document.querySelector(".station-cards") ||
+    document.querySelector("[data-stations]");
+
+  if (!container) {
+    container = document.createElement("section");
+    container.id = "station-cards";
+    container.style.margin = "12px 0";
+    const chat = document.querySelector("#chat") || document.body;
+    chat.prepend(container);
+  }
+
+  container.innerHTML = ""; // clear
+  DUMMY_STATIONS.forEach(s => container.appendChild(stationCardEl(s, true)));
+}
+
+const FORCE_DEMO = false; // set true to always show
+const urlParams = new URLSearchParams(window.location.search);
+if (FORCE_DEMO || urlParams.get("demo") === "stations") {
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", renderDummyStations);
+  } else {
+    renderDummyStations();
+  }
+}
+
+
 /***** EVENTS *****/
 window.addEventListener("DOMContentLoaded", ()=>{
   captureLocation();
