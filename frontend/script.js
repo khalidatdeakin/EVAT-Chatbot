@@ -82,37 +82,88 @@ function renderStationCards(stations, showAvailability=false){
   stations.forEach(s => cardsEl.appendChild(stationCardEl(s, showAvailability)));
 }
 
-function stationCardEl(s, showAvailability){
+function stationCardEl(s, showAvailability) {
   const el = document.createElement("article");
   el.className = "station-card";
-  el.innerHTML = `
-    <div class="sc-head">
-      <div class="sc-icon">⚡</div>
-      <div>
-        <div class="sc-title">${s.name ?? "Unnamed station"}</div>
-        <div class="sc-sub">${s.address ?? ""}</div>
-      </div>
-      ${showAvailability && s.availability
-        ? `<span class="badge ${badgeClass(s.availability)}" style="margin-left:auto">${badgeText(s.availability)}</span>`
-        : ""}
-    </div>
-    <div class="sc-metrics">
-      <div><span class="label">Distance</span>${fmtDistance(s.distance_km)}</div>
-      <div><span class="label">Cost</span>${s.cost ?? "Price unknown"}</div>
-      <div><span class="label">Power</span>${fmtPower(s.power)}</div>
-    </div>
-    <div class="sc-actions">
-      <button class="btn-primary">Get Directions</button>
-    </div>
-  `;
 
-  el.querySelector(".btn-primary").onclick = () => {
-    const payload = s.id
-      ? `/get_directions{"station_id":"${s.id}"}`
-      : "/get_directions";
-    sendMessage(payload);
+  // --- Head ---
+  const head = document.createElement("div");
+  head.className = "sc-head";
+
+  const icon = document.createElement("div");
+  icon.className = "sc-icon";
+  icon.textContent = "⚡";
+
+  const headRight = document.createElement("div");
+  const title = document.createElement("div");
+  title.className = "sc-title";
+  title.textContent = s.name ?? "Unnamed station";
+
+  const sub = document.createElement("div");
+  sub.className = "sc-sub";
+  sub.textContent = s.address ?? "";
+
+  headRight.append(title, sub);
+  head.append(icon, headRight);
+
+  if (showAvailability && s.availability) {
+    const badge = document.createElement("span");
+    badge.className = `badge ${badgeClass(s.availability)}`;
+    badge.style.marginLeft = "auto";
+    badge.textContent = badgeText(s.availability);
+    head.appendChild(badge);
+  }
+
+  // --- Metrics ---
+  const metrics = document.createElement("div");
+  metrics.className = "sc-metrics";
+
+  const metric = (label, valueText, extraClass) => {
+    const wrap = document.createElement("div");
+    const lab = document.createElement("span");
+    lab.className = "label";
+    lab.textContent = label;
+    const val = document.createElement("span");
+    val.className = "value" + (extraClass ? " " + extraClass : "");
+    val.textContent = valueText;
+    wrap.append(lab, val);
+    return wrap;
   };
 
+  metrics.append(
+    metric("Distance", fmtDistance(s.distance_km)),
+    metric("Cost", s.cost ?? "Price unknown", "cost"),
+    metric("Power", fmtPower(s.power))
+  );
+
+  // --- Actions ---
+  const actions = document.createElement("div");
+  actions.className = "sc-actions";
+
+  const btn = document.createElement("button");
+  btn.className = "btn-primary";
+  btn.textContent = "Get Directions";
+  btn.addEventListener("click", () => {
+    // Call your existing send function if present; otherwise log.
+    if (typeof sendText === "function") {
+      try {
+        sendText("/get_directions", {
+          station_id: s.station_id,
+          name: s.name,
+          address: s.address
+        });
+      } catch (e) {
+        console.warn("sendText threw, falling back to log:", e, s);
+      }
+    } else {
+      console.log("Get Directions clicked:", s);
+    }
+  });
+
+  actions.appendChild(btn);
+
+  // --- Assemble ---
+  el.append(head, metrics, actions);
   return el;
 }
 
