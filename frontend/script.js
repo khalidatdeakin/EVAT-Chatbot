@@ -1,236 +1,419 @@
-const chat = document.getElementById("chat");
-const form = document.getElementById("chat-form");
-const userInput = document.getElementById("user-input");
-const typingIndicator = document.getElementById("typing-indicator");
-const clearBtn = document.getElementById("clear-btn");
+/***** CONFIG *****/
+const RASA_REST_URL = "http://localhost:5005/webhooks/rest/webhook"; // change if needed
+const SENDER_ID = "web-" + Math.random().toString(36).slice(2);
 
 let userLocation = null;
 
-// Restore chat from localStorage
-window.onload = async () => {
-  const stored = localStorage.getItem("chatHistory");
-  if (stored) chat.innerHTML = stored;
+/***** DOM *****/
+const chatContainer = document.getElementById("chat-container");
+const chatEl = document.getElementById("chat");
+const quickEl = document.getElementById("quick-replies");
+const cardsEl = document.getElementById("station-cards");
+const pagerEl = document.getElementById("pager");
+const typingEl = document.getElementById("typing-indicator");
+const form = document.getElementById("chat-form");
+const input = document.getElementById("user-input");
+const clearBtn = document.getElementById("clear-btn");
 
-  addMessage("Hi! I'm EVAT. Getting your location...", "bot");
+/***** UTILITIES *****/
+function nowTime(){
+  const d = new Date();
+  const hh = String(d.getHours()).padStart(2,"0");
+  const mm = String(d.getMinutes()).padStart(2,"0");
+  return `${hh}:${mm}`;
+}
+function addTimestamp(){
+  const t = document.createElement("div");
+  t.className = "timestamp";
+  t.textContent = nowTime();
+  chatEl.appendChild(t);
+}
+function scrollToBottom(){ chatContainer.scrollTop = chatContainer.scrollHeight; }
+function autoresize(){ input.style.height = "auto"; input.style.height = (input.scrollHeight) + "px"; }
 
-  // Try to get user location and send it to Rasa
-  try {
-    const loc = await getUserLocation();
-    userLocation = {
-      lat: loc.coords.latitude,
-      lng: loc.coords.longitude  // Changed from 'lon' to 'lng' to match Rasa
+/***** CHAT RENDER *****/
+function addMessage(text, who = "bot"){
+  const row = document.createElement("div");
+  row.className = `row ${who}-row`;
+
+  // Add a small brand avatar for bot messages
+  if (who === "bot") {
+    const avatar = document.createElement("div");
+    avatar.className = "avatar bot";
+    avatar.textContent = "⚡";            // same logo as title
+    row.appendChild(avatar);
+  }
+
+  const bubbleWrap = document.createElement("div");
+  bubbleWrap.className = who;
+
+  const bubble = document.createElement("div");
+  bubble.className = "message";
+  bubble.textContent = text;
+
+  bubbleWrap.appendChild(bubble);
+  row.appendChild(bubbleWrap);
+
+  chatEl.appendChild(row);
+  scrollToBottom();
+}
+
+/***** QUICK REPLIES *****/
+function createQuickReplyButtons(buttons = [
+  { label: "Get Directions", payload: "/get_directions" }
+]){
+  quickEl.innerHTML = "";
+  buttons.forEach(({label, payload})=>{
+    const b = document.createElement("button");
+    b.className = "qr"; b.type = "button"; b.textContent = label;
+    b.onclick = () => {
+      [...quickEl.querySelectorAll("button")].forEach(x => x.disabled = true);
+      sendMessage(payload);
     };
-
-    // Automatically send location to Rasa to trigger the menu
-    await sendLocationToRasa();
-
-  } catch (error) {
-    // Location failed, show fallback message
-    addMessage("Location access denied. Please type your suburb name (e.g., 'Richmond') to continue.", "bot");
-  }
-};
-
-function addMessage(text, sender = "bot") {
-  // Create the message container
-  const msg = document.createElement("div");
-  msg.classList.add("message", sender);
-  msg.textContent = text;
-
-  // Create the timestamp
-  const timestamp = document.createElement("div");
-  timestamp.className = "timestamp";
-  timestamp.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-  // Append the message and timestamp to the chat
-  chat.appendChild(msg);
-  chat.appendChild(timestamp);
-
-  // Manually set a timeout to ensure the DOM is updated before scrolling
-  setTimeout(() => {
-    // Ensure that we scroll the chat container and not just the messages
-    const chatContainer = document.getElementById("chat-container");
-
-    // Log to ensure we are selecting the correct element
-    console.log("chatContainer scrollHeight: ", chatContainer.scrollHeight);
-    console.log("chatContainer scrollTop: ", chatContainer.scrollTop);
-    console.log("chatContainer clientHeight: ", chatContainer.clientHeight);
-
-    // Scroll the chat container to the bottom
-    chatContainer.scrollTop = chatContainer.scrollHeight;
-  }, 0);
-
-  // Save chat history to localStorage
-  localStorage.setItem("chatHistory", chat.innerHTML);
-}
-
-
-function addDirectionsCard(payload) {
-  const container = document.createElement("div");
-  container.classList.add("message", "bot");
-  container.innerHTML = `
-    <div><strong>🗺️ Directions</strong></div>
-    <div>${payload.origin} → ${payload.destination}</div>
-    <div>Distance: ${payload.distance_km != null ? payload.distance_km.toFixed(1) + ' km' : '—'} | ETA: ${payload.eta_min != null ? Math.round(payload.eta_min) + ' min' : '—'}${payload.delay_min ? ` (+${Math.round(payload.delay_min)} min traffic)` : ''}</div>
-    ${payload.maps_url ? `<div style="margin-top:6px"><a href="${payload.maps_url}" target="_blank" rel="noopener">Open in Google Maps</a></div>` : ''}
-  `;
-  chat.appendChild(container);
-
-  // instruction but not done
-  const steps = Array.isArray(payload.instructions)
-    ? payload.instructions
-    : (typeof payload.instructions === 'string' ? [payload.instructions] : []);
-  if (Array.isArray(steps) && steps.length) {
-    const list = document.createElement('ol');
-    list.style.margin = '6px 0 0 18px';
-    steps.slice(0, 8).forEach(step => {
-      const li = document.createElement('li');
-      li.textContent = step;
-      list.appendChild(li);
-    });
-    chat.appendChild(list);
-  }
-
-  // Scroll and persist
-  const timestamp = document.createElement("div");
-  timestamp.className = "timestamp";
-  timestamp.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  chat.appendChild(timestamp);
-  const chatContainer = document.getElementById("chat-container");
-  if (chatContainer) chatContainer.scrollTop = chatContainer.scrollHeight;
-  localStorage.setItem("chatHistory", chat.innerHTML);
-}
-
-function addTrafficCard(payload) {
-  const container = document.createElement("div");
-  container.classList.add("message", "bot");
-  const speedText = (payload.current_speed_kmh != null && payload.free_flow_speed_kmh != null)
-    ? ` | Speed: ${Math.round(payload.current_speed_kmh)} km/h (free-flow ${Math.round(payload.free_flow_speed_kmh)} km/h)`
-    : '';
-  const congestionText = payload.congestion_level != null ? ` | Level ${payload.congestion_level}` : '';
-  container.innerHTML = `
-    <div><strong>🚦 Traffic</strong></div>
-    <div>${payload.origin} → ${payload.destination}</div>
-    <div>Status: ${payload.status || 'Available'}${congestionText}${speedText}${payload.delay_min != null ? ` | Delay: ${Math.round(payload.delay_min)} min` : ''}</div>
-  `;
-  chat.appendChild(container);
-
-  const timestamp = document.createElement("div");
-  timestamp.className = "timestamp";
-  timestamp.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  chat.appendChild(timestamp);
-  const chatContainer = document.getElementById("chat-container");
-  if (chatContainer) chatContainer.scrollTop = chatContainer.scrollHeight;
-  localStorage.setItem("chatHistory", chat.innerHTML);
-}
-
-function handleRasaResponse(messages) {
-  messages.forEach((msg) => {
-    // Standard text
-    if (msg.text) addMessage(msg.text, "bot");
-
-    // Custom JSON payloads (Rasa REST channel: "custom" field)
-    const payload = msg.custom || msg.json_message || null;
-    if (!payload || typeof payload !== 'object') return;
-
-    if (payload.type === 'directions') {
-      addDirectionsCard(payload);
-    } else if (payload.type === 'traffic') {
-      addTrafficCard(payload);
-    }
+    quickEl.appendChild(b);
   });
 }
 
+/***** STATION CARDS *****/
+function renderStationCards(stations, showAvailability=false){
+  cardsEl.innerHTML = "";
+  if (!Array.isArray(stations) || stations.length === 0) return;
 
+  stations.forEach(s => cardsEl.appendChild(stationCardEl(s, showAvailability)));
+}
 
-async function getUserLocation() {
-  return new Promise((resolve, reject) => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(resolve, reject);
+function stationCardEl(s, showAvailability) {
+  const el = document.createElement("article");
+  el.className = "station-card";
+
+  // --- Head ---
+  const head = document.createElement("div");
+  head.className = "sc-head";
+
+  const icon = document.createElement("div");
+  icon.className = "sc-icon";
+  icon.textContent = "⚡";
+
+  const headRight = document.createElement("div");
+  const title = document.createElement("div");
+  title.className = "sc-title";
+  title.textContent = s.name ?? "Unnamed station";
+
+  const sub = document.createElement("div");
+  sub.className = "sc-sub";
+  sub.textContent = s.address ?? "";
+
+  headRight.append(title, sub);
+  head.append(icon, headRight);
+
+  if (showAvailability && s.availability) {
+    const badge = document.createElement("span");
+    badge.className = `badge ${badgeClass(s.availability)}`;
+    badge.style.marginLeft = "auto";
+    badge.textContent = badgeText(s.availability);
+    head.appendChild(badge);
+  }
+
+  // --- Metrics ---
+  const metrics = document.createElement("div");
+  metrics.className = "sc-metrics";
+
+  const metric = (label, valueText, extraClass) => {
+    const wrap = document.createElement("div");
+    const lab = document.createElement("span");
+    lab.className = "label";
+    lab.textContent = label;
+    const val = document.createElement("span");
+    val.className = "value" + (extraClass ? " " + extraClass : "");
+    val.textContent = valueText;
+    wrap.append(lab, val);
+    return wrap;
+  };
+
+  metrics.append(
+    metric("Distance", fmtDistance(s.distance_km)),
+    metric("Cost", s.cost ?? "Price unknown", "cost"),
+    metric("Power", fmtPower(s.power))
+  );
+
+  // --- Actions ---
+  const actions = document.createElement("div");
+  actions.className = "sc-actions";
+
+  const btn = document.createElement("button");
+  btn.className = "btn-primary";
+  btn.textContent = "Get Directions";
+  btn.addEventListener("click", () => {
+    // Call your existing send function if present; otherwise log.
+    if (typeof sendText === "function") {
+      try {
+        sendText("/get_directions", {
+          station_id: s.station_id,
+          name: s.name,
+          address: s.address
+        });
+      } catch (e) {
+        console.warn("sendText threw, falling back to log:", e, s);
+      }
     } else {
-      reject(new Error("Geolocation not supported."));
+      console.log("Get Directions clicked:", s);
     }
   });
+
+  actions.appendChild(btn);
+
+  // --- Assemble ---
+  el.append(head, metrics, actions);
+  return el;
 }
 
-async function sendLocationToRasa() {
-  try {
-    const payload = {
-      sender: "user",
-      message: "hello",  // Send a greeting to trigger the menu
-      metadata: userLocation
+function badgeClass(a){ return a==="yes"?"available":a==="no"?"busy":"unknown"; }
+function badgeText(a){ return a==="yes"?"Available":a==="no"?"Busy":"Unknown"; }
+function fmtDistance(km){
+  if (km==null || isNaN(km)) return "—";
+  return km < 10 ? `${Number(km).toFixed(1)} km` : `${Math.round(km)} km`;
+}
+function fmtPower(p){ return p ? (typeof p==="string"?p:`Up to ${p} kW`) : "—"; }
+
+/***** PAGER (illustrative) *****/
+function renderPager(pages=3, current=1){
+  pagerEl.innerHTML = "";
+  for (let i=1;i<=pages;i++){
+    const d = document.createElement("button");
+    d.className = "page-dot" + (i===current?" active":"");
+    d.textContent = i;
+    d.onclick = () => {
+      document.querySelectorAll(".page-dot").forEach(x=>x.classList.remove("active"));
+      d.classList.add("active");
+      // hook up real paging once backend supports it
     };
-
-    const response = await fetch("http://localhost:5005/webhooks/rest/webhook", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    const data = await response.json();
-    if (data.length > 0) {
-      handleRasaResponse(data);
-    }
-  } catch (err) {
-    console.error("Error sending location to Rasa:", err);
+    pagerEl.appendChild(d);
   }
 }
 
-async function sendMessage(message) {
-  typingIndicator.classList.remove("hidden");
-
-  try {
-    const payload = {
-      sender: "user",
-      message,
-      metadata: userLocation || {}
-    };
-
-    const response = await fetch("http://localhost:5005/webhooks/rest/webhook", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    const data = await response.json();
-    if (data.length === 0) {
-      addMessage("Sorry, I didn’t understand that.", "bot");
-    } else {
-      handleRasaResponse(data);
-    }
-  } catch (err) {
-    addMessage("Server error. Please try again.", "bot");
-  } finally {
-    typingIndicator.classList.add("hidden");
-  }
-}
-
-form.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const message = userInput.value.trim();
+/***** NETWORK *****/
+async function sendMessage(message){
   if (!message) return;
 
-  addMessage(message, "user");
-  userInput.value = "";
-  userInput.rows = 1;
+  // render the user's choice
+  addTimestamp();
+  addMessage(prettyUserLabel(message), "user");
 
-  await sendMessage(message);
+  typing(true);
+
+  try{
+    const body = {
+      sender: SENDER_ID,
+      message,
+      metadata: userLocation ? { location: userLocation } : undefined
+    };
+
+    const res = await fetch(RASA_REST_URL, {
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify(body)
+    });
+
+    const data = await res.json(); // array of messages
+
+    // reset quick replies (fresh set comes from the bot if provided)
+    quickEl.innerHTML = "";
+
+    let stations = null;
+    let showAvail = false;
+
+    if (!Array.isArray(data) || data.length === 0){
+      addTimestamp();
+      addMessage("Sorry, I didn’t understand that.", "bot");
+    } else {
+      data.forEach(msg => {
+        if (msg.text){
+          addTimestamp();
+          addMessage(msg.text, "bot");
+        }
+
+        // Render suggested buttons returned by Rasa (optional)
+        if (Array.isArray(msg.buttons)){
+  const allowed = msg.buttons.filter(b =>
+    (b.payload && b.payload.startsWith("/get_directions")) ||
+    (b.title && /get directions/i.test(b.title))
+  ).map(b => ({ label: b.title || "Get Directions", payload: b.payload || "/get_directions" }));
+
+  if (allowed.length) {
+    createQuickReplyButtons(allowed);
+  } else {
+    // if bot suggested other buttons, ignore them and keep our default
+    createQuickReplyButtons();
+  }
+}
+
+        // Custom payload with stations
+        if (msg.custom && Array.isArray(msg.custom.stations)){
+          stations = msg.custom.stations;
+          showAvail = !!msg.custom.show_availability;
+        }
+      });
+    }
+
+    if (stations){
+      renderStationCards(stations, showAvail);
+      renderPager(3);
+    }
+
+  }catch(err){
+    console.error(err);
+    addTimestamp();
+    addMessage("Sorry, I couldn’t reach the server.", "bot");
+  }finally{
+    typing(false);
+    input.value = "";
+    autoresize();
+    scrollToBottom();
+  }
+}
+
+function prettyUserLabel(message){
+  if (typeof message === "string" && message.startsWith("/")){
+    const name = message.split("{")[0].slice(1).replace(/_/g," ");
+    return name.charAt(0).toUpperCase() + name.slice(1);
+  }
+  return message;
+}
+
+/***** UX HELPERS *****/
+function typing(on){ typingEl.classList.toggle("hidden", !on); }
+function greet(){
+  addTimestamp();
+  addMessage("Hello! Welcome to Melbourne EV Charging Assistant ⚡\n\nPlease select an option:\n\n1. 🗺️ **Route Planning** – Plan charging stops for your journey\n2. 🚨 **Emergency Charging** – Find nearest stations when battery is low\n3. ⚡ **Charging Preferences** – Find stations by your preferences\n\n**🎯 Type 1, 2, or 3 to continue!**", "bot");
+  createQuickReplyButtons(); // initial quick actions
+}
+
+/***** GEO *****/
+function captureLocation(){
+  if (!navigator.geolocation) return;
+  navigator.geolocation.getCurrentPosition(
+    (pos)=>{
+      userLocation = {
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude,
+        accuracy: pos.coords.accuracy
+      };
+    },
+    ()=>{ /* ignore errors silently */ },
+    { enableHighAccuracy:true, maximumAge:30000, timeout:8000 }
+  );
+}
+
+/* ===========================
+   DEMO: render fake stations
+   =========================== */
+
+function fmtDistance(km) {
+  if (km == null) return "—";
+  const n = Number(km);
+  return n < 1 ? `${Math.round(n * 1000)} m` : `${n.toFixed(1)} km`;
+}
+function fmtPower(p) {
+  if (p == null) return "—";
+  return (typeof p === "string") ? p : `${p} kW`;
+}
+
+const DUMMY_STATIONS = [
+  {
+    station_id: "cf-melb-central",
+    name: "Melbourne Central — Chargefox",
+    address: "211 La Trobe St, Melbourne VIC 3000",
+    distance_km: 1.2,
+    cost: "$0.45/kWh",
+    power: "Up to 150 kW",
+    availability: "yes"
+  },
+  {
+    station_id: "cf-qvm",
+    name: "QVM Car Park — Chargefox",
+    address: "36 Peel St, North Melbourne VIC 3051",
+    distance_km: 2.4,
+    cost: "$0.42/kWh + $1/min idle",
+    power: 75,
+    availability: "no"
+  },
+  {
+    station_id: "evie-bourke",
+    name: "Bourke Street — Evie",
+    address: "620 Bourke St, Melbourne VIC 3000",
+    distance_km: 0.8,
+    cost: "$0.55/kWh",
+    power: 200,
+    availability: "yes"
+  }
+];
+
+function renderDummyStations() {
+  let container =
+    document.querySelector("#station-cards") ||
+    document.querySelector(".station-cards") ||
+    document.querySelector("[data-stations]");
+
+  if (!container) {
+    container = document.createElement("section");
+    container.id = "station-cards";
+    container.style.margin = "12px 0";
+    const chat = document.querySelector("#chat") || document.body;
+    chat.prepend(container);
+  }
+
+  container.innerHTML = ""; // clear
+  DUMMY_STATIONS.forEach(s => container.appendChild(stationCardEl(s, true)));
+}
+
+const FORCE_DEMO = false; // set true to always show
+const urlParams = new URLSearchParams(window.location.search);
+if (FORCE_DEMO || urlParams.get("demo") === "stations") {
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", renderDummyStations);
+  } else {
+    renderDummyStations();
+  }
+}
+
+
+/***** EVENTS *****/
+window.addEventListener("DOMContentLoaded", ()=>{
+  captureLocation();
+  greet();
+  autoresize();
+  input.focus();
 });
 
-userInput.addEventListener("input", () => {
-  userInput.rows = Math.min(5, Math.ceil(userInput.scrollHeight / 24));
+form.addEventListener("submit", (e)=>{
+  e.preventDefault();
+  const text = input.value.trim();
+  if (!text) return;
+  sendMessage(text);
 });
 
-userInput.addEventListener("keydown", (e) => {
-  if (e.key === "Enter" && !e.shiftKey) {
-    e.preventDefault();
-    form.requestSubmit();
+input.addEventListener("input", autoresize);
+
+// --- Enter to send, Shift+Enter for newline (IME-safe) ---
+let isComposing = false;
+input.addEventListener("compositionstart", () => (isComposing = true));
+input.addEventListener("compositionend",  () => (isComposing = false));
+
+input.addEventListener("keydown", (e) => {
+  if (isComposing) return;                 // let IME finish composing
+  if (e.key === "Enter" && !e.shiftKey) {  // plain Enter
+    e.preventDefault();                    // stop newline
+    const text = input.value.trim();
+    if (text) {
+      form.requestSubmit();                // triggers your existing submit handler
+    }
   }
 });
 
-clearBtn.addEventListener("click", () => {
-  if (confirm("Clear all chat messages?")) {
-    chat.innerHTML = "";
-    localStorage.removeItem("chatHistory");
-    addMessage("Chat cleared. How can I help you now?", "bot");
-  }
+clearBtn.addEventListener("click", ()=>{
+  chatEl.innerHTML = "";
+  cardsEl.innerHTML = "";
+  pagerEl.innerHTML = "";
+  quickEl.innerHTML = "";
+  greet();
 });
