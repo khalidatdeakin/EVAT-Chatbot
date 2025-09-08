@@ -213,11 +213,9 @@ header{ background:#fff; border-bottom:1px solid var(--border); }
   text-align: left;        /* left-align text per request */
 }
 
-/* Keep user row on the right so avatar sits at the far right */
+/* Make the user column shrink to the bubble; keep it on the right */
 .row.user{
-  display: flex;
   justify-content: flex-end;
-  align-items: flex-end;
   gap: 8px;
 }
 
