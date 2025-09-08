@@ -205,12 +205,12 @@ header{ background:#fff; border-bottom:1px solid var(--border); }
   .sc-metrics{ grid-template-columns:1fr 1fr; }
 }
 
-/* Dynamic user bubble: shrink to fit content, left-aligned text */
+/* Bubble sizes to content (left-aligned text) with a sensible cap */
 .row.user .message{
   display: inline-block;
-  width: auto;             /* override any fixed width */
-  max-width: 80%;          /* keep a sensible cap */
-  text-align: left;        /* left-align text per request */
+  width: auto;
+  max-width: 80%;
+  text-align: left;
 }
 
 /* Make the user column shrink to the bubble; keep it on the right */
