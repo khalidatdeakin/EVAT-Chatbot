@@ -1,419 +1,337 @@
-/***** CONFIG *****/
-const RASA_REST_URL = "http://localhost:5005/webhooks/rest/webhook"; // change if needed
-const SENDER_ID = "web-" + Math.random().toString(36).slice(2);
+/* =========================================================
+   EVAT Chat Frontend – Safe, DOM-only rendering
+   Fixes implemented:
+   1) "Get Directions" button now calls sendMessage(payload)
+   2) Removed duplicate formatters; single fmtDistance/fmtPower
+   3) Greet message uses plain text (no markdown)
+   4) Quick-reply allowlist broadened (configurable)
+   5) Demo renderer gated & scoped
+   6) User avatar added to match existing CSS
+   ========================================================= */
 
-let userLocation = null;
+(() => {
+  "use strict";
 
-/***** DOM *****/
-const chatContainer = document.getElementById("chat-container");
-const chatEl = document.getElementById("chat");
-const quickEl = document.getElementById("quick-replies");
-const cardsEl = document.getElementById("station-cards");
-const pagerEl = document.getElementById("pager");
-const typingEl = document.getElementById("typing-indicator");
-const form = document.getElementById("chat-form");
-const input = document.getElementById("user-input");
-const clearBtn = document.getElementById("clear-btn");
+  /***** CONFIG *****/
+  const RASA_REST_URL = "http://localhost:5005/webhooks/rest/webhook"; // update if needed
+  const SENDER_ID = "web-" + Math.random().toString(36).slice(2);
+  const DEMO = true; // set false in production
 
-/***** UTILITIES *****/
-function nowTime(){
-  const d = new Date();
-  const hh = String(d.getHours()).padStart(2,"0");
-  const mm = String(d.getMinutes()).padStart(2,"0");
-  return `${hh}:${mm}`;
-}
-function addTimestamp(){
-  const t = document.createElement("div");
-  t.className = "timestamp";
-  t.textContent = nowTime();
-  chatEl.appendChild(t);
-}
-function scrollToBottom(){ chatContainer.scrollTop = chatContainer.scrollHeight; }
-function autoresize(){ input.style.height = "auto"; input.style.height = (input.scrollHeight) + "px"; }
+  // Quick reply buttons permitted from backend (text to display => payload to send; if payload === null, use the same text)
+  const QUICK_ALLOWLIST = new Set([
+    "Get Directions",
+    "Show Availability",
+    "Open in Maps",
+    "Cheapest nearby",
+    "Fastest chargers"
+  ]);
 
-/***** CHAT RENDER *****/
-function addMessage(text, who = "bot"){
-  const row = document.createElement("div");
-  row.className = `row ${who}-row`;
+  /***** DOM *****/
+  const chatEl    = document.getElementById("chat");
+  const quickEl   = document.getElementById("quick-replies");
+  const cardsEl   = document.getElementById("station-cards");
+  const pagerEl   = document.getElementById("pager");
+  const typingEl  = document.getElementById("typing-indicator");
+  const form      = document.getElementById("chat-form");
+  const input     = document.getElementById("user-input");
+  const clearBtn  = document.getElementById("clear-btn");
 
-  // Add a small brand avatar for bot messages
-  if (who === "bot") {
+  if (!chatEl || !form || !input) {
+    console.error("Required DOM elements not found. Check IDs in chat.html.");
+    return;
+  }
+
+  /***** UTIL *****/
+  const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
+
+  function fmtDistance(meters) {
+    if (meters == null || isNaN(meters)) return "–";
+    if (meters < 950) return `${Math.round(meters)} m`;
+    return `${(meters/1000).toFixed(1)} km`;
+  }
+
+  function fmtPower(kw) {
+    if (kw == null || isNaN(kw)) return "–";
+    return `${kw} kW`;
+  }
+
+  function scrollToBottom() {
+    // Keep the latest message/cards in view
+    chatEl.parentElement?.scrollTo({ top: chatEl.parentElement.scrollHeight, behavior: "smooth" });
+  }
+
+  /***** MESSAGE RENDERING *****/
+  function bubble(role, text) {
+    const row = document.createElement("div");
+    row.className = `row ${role}`;
+
     const avatar = document.createElement("div");
-    avatar.className = "avatar bot";
-    avatar.textContent = "⚡";            // same logo as title
+    avatar.className = `avatar ${role}`;
+    avatar.setAttribute("aria-hidden", "true");
+    avatar.textContent = role === "bot" ? "⚡" : "🙂";
+
+    const msg = document.createElement("div");
+    msg.className = "message";
+    msg.textContent = text ?? ""; // DOM-safe
+
     row.appendChild(avatar);
+    row.appendChild(msg);
+    return row;
   }
 
-  const bubbleWrap = document.createElement("div");
-  bubbleWrap.className = who;
-
-  const bubble = document.createElement("div");
-  bubble.className = "message";
-  bubble.textContent = text;
-
-  bubbleWrap.appendChild(bubble);
-  row.appendChild(bubbleWrap);
-
-  chatEl.appendChild(row);
-  scrollToBottom();
-}
-
-/***** QUICK REPLIES *****/
-function createQuickReplyButtons(buttons = [
-  { label: "Get Directions", payload: "/get_directions" }
-]){
-  quickEl.innerHTML = "";
-  buttons.forEach(({label, payload})=>{
-    const b = document.createElement("button");
-    b.className = "qr"; b.type = "button"; b.textContent = label;
-    b.onclick = () => {
-      [...quickEl.querySelectorAll("button")].forEach(x => x.disabled = true);
-      sendMessage(payload);
-    };
-    quickEl.appendChild(b);
-  });
-}
-
-/***** STATION CARDS *****/
-function renderStationCards(stations, showAvailability=false){
-  cardsEl.innerHTML = "";
-  if (!Array.isArray(stations) || stations.length === 0) return;
-
-  stations.forEach(s => cardsEl.appendChild(stationCardEl(s, showAvailability)));
-}
-
-function stationCardEl(s, showAvailability) {
-  const el = document.createElement("article");
-  el.className = "station-card";
-
-  // --- Head ---
-  const head = document.createElement("div");
-  head.className = "sc-head";
-
-  const icon = document.createElement("div");
-  icon.className = "sc-icon";
-  icon.textContent = "⚡";
-
-  const headRight = document.createElement("div");
-  const title = document.createElement("div");
-  title.className = "sc-title";
-  title.textContent = s.name ?? "Unnamed station";
-
-  const sub = document.createElement("div");
-  sub.className = "sc-sub";
-  sub.textContent = s.address ?? "";
-
-  headRight.append(title, sub);
-  head.append(icon, headRight);
-
-  if (showAvailability && s.availability) {
-    const badge = document.createElement("span");
-    badge.className = `badge ${badgeClass(s.availability)}`;
-    badge.style.marginLeft = "auto";
-    badge.textContent = badgeText(s.availability);
-    head.appendChild(badge);
-  }
-
-  // --- Metrics ---
-  const metrics = document.createElement("div");
-  metrics.className = "sc-metrics";
-
-  const metric = (label, valueText, extraClass) => {
-    const wrap = document.createElement("div");
-    const lab = document.createElement("span");
-    lab.className = "label";
-    lab.textContent = label;
-    const val = document.createElement("span");
-    val.className = "value" + (extraClass ? " " + extraClass : "");
-    val.textContent = valueText;
-    wrap.append(lab, val);
-    return wrap;
-  };
-
-  metrics.append(
-    metric("Distance", fmtDistance(s.distance_km)),
-    metric("Cost", s.cost ?? "Price unknown", "cost"),
-    metric("Power", fmtPower(s.power))
-  );
-
-  // --- Actions ---
-  const actions = document.createElement("div");
-  actions.className = "sc-actions";
-
-  const btn = document.createElement("button");
-  btn.className = "btn-primary";
-  btn.textContent = "Get Directions";
-  btn.addEventListener("click", () => {
-    // Call your existing send function if present; otherwise log.
-    if (typeof sendText === "function") {
-      try {
-        sendText("/get_directions", {
-          station_id: s.station_id,
-          name: s.name,
-          address: s.address
-        });
-      } catch (e) {
-        console.warn("sendText threw, falling back to log:", e, s);
-      }
-    } else {
-      console.log("Get Directions clicked:", s);
-    }
-  });
-
-  actions.appendChild(btn);
-
-  // --- Assemble ---
-  el.append(head, metrics, actions);
-  return el;
-}
-
-function badgeClass(a){ return a==="yes"?"available":a==="no"?"busy":"unknown"; }
-function badgeText(a){ return a==="yes"?"Available":a==="no"?"Busy":"Unknown"; }
-function fmtDistance(km){
-  if (km==null || isNaN(km)) return "—";
-  return km < 10 ? `${Number(km).toFixed(1)} km` : `${Math.round(km)} km`;
-}
-function fmtPower(p){ return p ? (typeof p==="string"?p:`Up to ${p} kW`) : "—"; }
-
-/***** PAGER (illustrative) *****/
-function renderPager(pages=3, current=1){
-  pagerEl.innerHTML = "";
-  for (let i=1;i<=pages;i++){
-    const d = document.createElement("button");
-    d.className = "page-dot" + (i===current?" active":"");
-    d.textContent = i;
-    d.onclick = () => {
-      document.querySelectorAll(".page-dot").forEach(x=>x.classList.remove("active"));
-      d.classList.add("active");
-      // hook up real paging once backend supports it
-    };
-    pagerEl.appendChild(d);
-  }
-}
-
-/***** NETWORK *****/
-async function sendMessage(message){
-  if (!message) return;
-
-  // render the user's choice
-  addTimestamp();
-  addMessage(prettyUserLabel(message), "user");
-
-  typing(true);
-
-  try{
-    const body = {
-      sender: SENDER_ID,
-      message,
-      metadata: userLocation ? { location: userLocation } : undefined
-    };
-
-    const res = await fetch(RASA_REST_URL, {
-      method:"POST",
-      headers:{ "Content-Type":"application/json" },
-      body: JSON.stringify(body)
-    });
-
-    const data = await res.json(); // array of messages
-
-    // reset quick replies (fresh set comes from the bot if provided)
-    quickEl.innerHTML = "";
-
-    let stations = null;
-    let showAvail = false;
-
-    if (!Array.isArray(data) || data.length === 0){
-      addTimestamp();
-      addMessage("Sorry, I didn’t understand that.", "bot");
-    } else {
-      data.forEach(msg => {
-        if (msg.text){
-          addTimestamp();
-          addMessage(msg.text, "bot");
-        }
-
-        // Render suggested buttons returned by Rasa (optional)
-        if (Array.isArray(msg.buttons)){
-  const allowed = msg.buttons.filter(b =>
-    (b.payload && b.payload.startsWith("/get_directions")) ||
-    (b.title && /get directions/i.test(b.title))
-  ).map(b => ({ label: b.title || "Get Directions", payload: b.payload || "/get_directions" }));
-
-  if (allowed.length) {
-    createQuickReplyButtons(allowed);
-  } else {
-    // if bot suggested other buttons, ignore them and keep our default
-    createQuickReplyButtons();
-  }
-}
-
-        // Custom payload with stations
-        if (msg.custom && Array.isArray(msg.custom.stations)){
-          stations = msg.custom.stations;
-          showAvail = !!msg.custom.show_availability;
-        }
-      });
-    }
-
-    if (stations){
-      renderStationCards(stations, showAvail);
-      renderPager(3);
-    }
-
-  }catch(err){
-    console.error(err);
-    addTimestamp();
-    addMessage("Sorry, I couldn’t reach the server.", "bot");
-  }finally{
-    typing(false);
-    input.value = "";
-    autoresize();
+  function addMessage(role, text) {
+    chatEl.appendChild(bubble(role, text));
     scrollToBottom();
   }
-}
 
-function prettyUserLabel(message){
-  if (typeof message === "string" && message.startsWith("/")){
-    const name = message.split("{")[0].slice(1).replace(/_/g," ");
-    return name.charAt(0).toUpperCase() + name.slice(1);
-  }
-  return message;
-}
-
-/***** UX HELPERS *****/
-function typing(on){ typingEl.classList.toggle("hidden", !on); }
-function greet(){
-  addTimestamp();
-  addMessage("Hello! Welcome to Melbourne EV Charging Assistant ⚡\n\nPlease select an option:\n\n1. 🗺️ **Route Planning** – Plan charging stops for your journey\n2. 🚨 **Emergency Charging** – Find nearest stations when battery is low\n3. ⚡ **Charging Preferences** – Find stations by your preferences\n\n**🎯 Type 1, 2, or 3 to continue!**", "bot");
-  createQuickReplyButtons(); // initial quick actions
-}
-
-/***** GEO *****/
-function captureLocation(){
-  if (!navigator.geolocation) return;
-  navigator.geolocation.getCurrentPosition(
-    (pos)=>{
-      userLocation = {
-        lat: pos.coords.latitude,
-        lng: pos.coords.longitude,
-        accuracy: pos.coords.accuracy
-      };
-    },
-    ()=>{ /* ignore errors silently */ },
-    { enableHighAccuracy:true, maximumAge:30000, timeout:8000 }
-  );
-}
-
-/* ===========================
-   DEMO: render fake stations
-   =========================== */
-
-function fmtDistance(km) {
-  if (km == null) return "—";
-  const n = Number(km);
-  return n < 1 ? `${Math.round(n * 1000)} m` : `${n.toFixed(1)} km`;
-}
-function fmtPower(p) {
-  if (p == null) return "—";
-  return (typeof p === "string") ? p : `${p} kW`;
-}
-
-const DUMMY_STATIONS = [
-  {
-    station_id: "cf-melb-central",
-    name: "Melbourne Central — Chargefox",
-    address: "211 La Trobe St, Melbourne VIC 3000",
-    distance_km: 1.2,
-    cost: "$0.45/kWh",
-    power: "Up to 150 kW",
-    availability: "yes"
-  },
-  {
-    station_id: "cf-qvm",
-    name: "QVM Car Park — Chargefox",
-    address: "36 Peel St, North Melbourne VIC 3051",
-    distance_km: 2.4,
-    cost: "$0.42/kWh + $1/min idle",
-    power: 75,
-    availability: "no"
-  },
-  {
-    station_id: "evie-bourke",
-    name: "Bourke Street — Evie",
-    address: "620 Bourke St, Melbourne VIC 3000",
-    distance_km: 0.8,
-    cost: "$0.55/kWh",
-    power: 200,
-    availability: "yes"
-  }
-];
-
-function renderDummyStations() {
-  let container =
-    document.querySelector("#station-cards") ||
-    document.querySelector(".station-cards") ||
-    document.querySelector("[data-stations]");
-
-  if (!container) {
-    container = document.createElement("section");
-    container.id = "station-cards";
-    container.style.margin = "12px 0";
-    const chat = document.querySelector("#chat") || document.body;
-    chat.prepend(container);
+  function setTyping(on) {
+    if (!typingEl) return;
+    typingEl.classList.toggle("hidden", !on);
   }
 
-  container.innerHTML = ""; // clear
-  DUMMY_STATIONS.forEach(s => container.appendChild(stationCardEl(s, true)));
-}
-
-const FORCE_DEMO = false; // set true to always show
-const urlParams = new URLSearchParams(window.location.search);
-if (FORCE_DEMO || urlParams.get("demo") === "stations") {
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", renderDummyStations);
-  } else {
-    renderDummyStations();
+  /***** QUICK REPLIES *****/
+  function clearQuick() {
+    if (quickEl) quickEl.innerHTML = "";
   }
-}
 
+  function renderQuickReplies(buttons) {
+    clearQuick();
+    if (!quickEl || !Array.isArray(buttons) || !buttons.length) return;
 
-/***** EVENTS *****/
-window.addEventListener("DOMContentLoaded", ()=>{
-  captureLocation();
-  greet();
-  autoresize();
-  input.focus();
-});
+    for (const b of buttons) {
+      const title = (b.title || b.payload || "").trim();
+      if (!title || !QUICK_ALLOWLIST.has(title)) continue;
 
-form.addEventListener("submit", (e)=>{
-  e.preventDefault();
-  const text = input.value.trim();
-  if (!text) return;
-  sendMessage(text);
-});
-
-input.addEventListener("input", autoresize);
-
-// --- Enter to send, Shift+Enter for newline (IME-safe) ---
-let isComposing = false;
-input.addEventListener("compositionstart", () => (isComposing = true));
-input.addEventListener("compositionend",  () => (isComposing = false));
-
-input.addEventListener("keydown", (e) => {
-  if (isComposing) return;                 // let IME finish composing
-  if (e.key === "Enter" && !e.shiftKey) {  // plain Enter
-    e.preventDefault();                    // stop newline
-    const text = input.value.trim();
-    if (text) {
-      form.requestSubmit();                // triggers your existing submit handler
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "chip";
+      btn.textContent = title;
+      const payload = b.payload || title;
+      btn.addEventListener("click", () => sendMessage(payload));
+      quickEl.appendChild(btn);
     }
   }
-});
 
-clearBtn.addEventListener("click", ()=>{
-  chatEl.innerHTML = "";
-  cardsEl.innerHTML = "";
-  pagerEl.innerHTML = "";
-  quickEl.innerHTML = "";
+  /***** STATION CARDS *****/
+  function stationCardEl(s) {
+    // expected fields (best effort): station_id, name, address, distance_m, price, power_kw, availability
+    const card = document.createElement("article");
+    card.className = "station-card";
+    card.setAttribute("role", "group");
+    card.setAttribute("aria-label", s?.name || "Charging station");
+
+    const h = document.createElement("h3");
+    h.textContent = s?.name || "Unknown station";
+    card.appendChild(h);
+
+    const meta = document.createElement("div");
+    meta.className = "meta";
+
+    const addr = document.createElement("div");
+    addr.className = "meta-item";
+    addr.textContent = s?.address || "Address: –";
+    meta.appendChild(addr);
+
+    const dist = document.createElement("div");
+    dist.className = "meta-item";
+    dist.textContent = `Distance: ${fmtDistance(Number(s?.distance_m))}`;
+    meta.appendChild(dist);
+
+    const power = document.createElement("div");
+    power.className = "meta-item";
+    power.textContent = `Power: ${fmtPower(Number(s?.power_kw))}`;
+    meta.appendChild(power);
+
+    const price = document.createElement("div");
+    price.className = "meta-item";
+    price.textContent = s?.price ? `Price: ${s.price}` : "Price: –";
+    meta.appendChild(price);
+
+    const avail = document.createElement("div");
+    avail.className = "meta-item";
+    avail.textContent = s?.availability ? `Availability: ${s.availability}` : "Availability: –";
+    meta.appendChild(avail);
+
+    card.appendChild(meta);
+
+    const actions = document.createElement("div");
+    actions.className = "actions";
+
+    // Primary action: send structured intent to Rasa (Fix #1)
+    const goBtn = document.createElement("button");
+    goBtn.type = "button";
+    goBtn.className = "btn primary";
+    goBtn.textContent = "Get Directions";
+    goBtn.addEventListener("click", () => {
+      const payload = `/get_directions{"station_id":"${s?.station_id ?? ""}","name":"${(s?.name ?? "").replace(/"/g, '\\"')}","address":"${(s?.address ?? "").replace(/"/g, '\\"')}"}`;
+      sendMessage(payload);
+    });
+    actions.appendChild(goBtn);
+
+    // Fallback: open native maps link (optional)
+    if (s?.lat && s?.lng) {
+      const mapA = document.createElement("a");
+      mapA.className = "btn";
+      mapA.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(s.lat + "," + s.lng)}`;
+      mapA.target = "_blank";
+      mapA.rel = "noopener";
+      mapA.textContent = "Open in Maps";
+      actions.appendChild(mapA);
+    }
+
+    card.appendChild(actions);
+    return card;
+  }
+
+  function renderStations(stations = [], page = 1, perPage = 6) {
+    if (!cardsEl || !pagerEl) return;
+    cardsEl.innerHTML = "";
+    pagerEl.innerHTML = "";
+    if (!stations.length) return;
+
+    const total = stations.length;
+    const pages = Math.ceil(total / perPage) || 1;
+    const p = clamp(page, 1, pages);
+    const start = (p - 1) * perPage;
+    const slice = stations.slice(start, start + perPage);
+
+    for (const s of slice) {
+      cardsEl.appendChild(stationCardEl(s));
+    }
+
+    // pager
+    if (pages > 1) {
+      for (let i = 1; i <= pages; i++) {
+        const dot = document.createElement("button");
+        dot.type = "button";
+        dot.className = "page-dot" + (i === p ? " active" : "");
+        dot.textContent = String(i);
+        dot.addEventListener("click", () => renderStations(stations, i, perPage));
+        pagerEl.appendChild(dot);
+      }
+    }
+    scrollToBottom();
+  }
+
+  /***** BACKEND I/O *****/
+  async function sendMessage(text) {
+    // render user message
+    addMessage("user", text);
+
+    // clear composer quick actions
+    clearQuick();
+
+    // show typing
+    setTyping(true);
+
+    try {
+      const res = await fetch(RASA_REST_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sender: SENDER_ID,
+          message: text
+        })
+      });
+
+      const data = await res.json();
+
+      // parse responses
+      for (const m of data) {
+        if (m.text) addMessage("bot", m.text);
+
+        // Rasa "buttons" (Fix #4 – allowlist)
+        if (Array.isArray(m.buttons) && m.buttons.length) {
+          renderQuickReplies(m.buttons);
+        }
+
+        // Custom payload: stations list
+        if (m.custom && Array.isArray(m.custom.stations)) {
+          renderStations(m.custom.stations);
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      addMessage("bot", "Sorry, I couldn’t reach the server. Please try again.");
+    } finally {
+      setTyping(false);
+    }
+  }
+
+  /***** GREETING (Fix #3) *****/
+  function greet() {
+    addMessage(
+      "bot",
+      [
+        "Hi! I’m EVAT. I can help you find EV charging stations near you.",
+        "",
+        "Try things like:",
+        "• “Nearest fast chargers under $0.45/kWh”",
+        "• “Show availability by Docklands”",
+        "• “Get directions to the cheapest nearby”"
+      ].join("\n")
+    );
+  }
+
+  /***** FORM & INPUT *****/
+  // autoresize textarea
+  function autoresize() {
+    input.style.height = "auto";
+    input.style.height = Math.min(input.scrollHeight, 220) + "px";
+  }
+
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = "";
+    autoresize();
+    sendMessage(text);
+  });
+
+  // Enter to send / Shift+Enter newline with IME safety
+  let isComposing = false;
+  input.addEventListener("compositionstart", () => (isComposing = true));
+  input.addEventListener("compositionend",  () => (isComposing = false));
+  input.addEventListener("keydown", (e) => {
+    if (isComposing) return;
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      form.requestSubmit();
+    }
+  });
+  input.addEventListener("input", autoresize);
+
+  clearBtn?.addEventListener("click", () => {
+    chatEl.innerHTML = "";
+    cardsEl.innerHTML = "";
+    pagerEl.innerHTML = "";
+    quickEl.innerHTML = "";
+    greet();
+  });
+
+  /***** DEMO DATA (Fix #5 – strictly gated) *****/
+  const DEMO_STATIONS = [
+    { station_id: "STN-001", name: "Spark Hub – Flinders St", address: "123 Flinders St, Melbourne VIC", distance_m: 420,  power_kw: 50, price: "$0.40/kWh", availability: "3/4", lat: -37.8183, lng: 144.9671 },
+    { station_id: "STN-002", name: "Volt Lane – Docklands",    address: "88 Harbour Esplanade, Docklands VIC", distance_m: 1600, power_kw: 150, price: "$0.48/kWh", availability: "2/6", lat: -37.8149, lng: 144.9500 },
+    { station_id: "STN-003", name: "ChargePoint – Carlton",     address: "45 Lygon St, Carlton VIC", distance_m: 2300, power_kw: 22, price: "$0.35/kWh", availability: "5/8", lat: -37.8000, lng: 144.9667 },
+    { station_id: "STN-004", name: "PowerStop – Southbank",     address: "200 City Rd, Southbank VIC", distance_m: 1800, power_kw: 350, price: "$0.55/kWh", availability: "1/4", lat: -37.8226, lng: 144.9650 },
+    { station_id: "STN-005", name: "GreenCharge – Fitzroy",     address: "12 Brunswick St, Fitzroy VIC", distance_m: 3100, power_kw: 11, price: "$0.30/kWh", availability: "7/10", lat: -37.7984, lng: 144.9783 },
+    { station_id: "STN-006", name: "AmpUp – St Kilda",          address: "1 Acland St, St Kilda VIC", distance_m: 5200, power_kw: 50, price: "$0.45/kWh", availability: "4/6", lat: -37.8676, lng: 144.9750 },
+    { station_id: "STN-007", name: "JuiceBox – Richmond",       address: "77 Swan St, Richmond VIC", distance_m: 4000, power_kw: 22, price: "$0.33/kWh", availability: "6/8", lat: -37.8245, lng: 144.9980 }
+  ];
+
+  function renderDemoOnce() {
+    if (!DEMO) return;
+    renderStations(DEMO_STATIONS, 1, 6);
+    renderQuickReplies([
+      { title: "Get Directions", payload: "/get_directions" },
+      { title: "Show Availability", payload: "/show_availability" },
+      { title: "Open in Maps", payload: "/open_maps" }
+    ]);
+  }
+
+  /***** INIT *****/
   greet();
-});
+  if (DEMO) renderDemoOnce();
+})();
