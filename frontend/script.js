@@ -22,6 +22,9 @@ function nowTime(){
   const mm = String(d.getMinutes()).padStart(2,"0");
   return `${hh}:${mm}`;
 }
+// Alias used by inline chips and station-card button
+const sendText = (text) => sendMessage(text);
+
 function addTimestamp(){
   const t = document.createElement("div");
   t.className = "timestamp";
