@@ -15,7 +15,7 @@
   /***** CONFIG *****/
   const RASA_REST_URL = "http://localhost:5005/webhooks/rest/webhook"; // update if needed
   const SENDER_ID = "web-" + Math.random().toString(36).slice(2);
-  const DEMO = true; // set false in production
+  const DEMO = false; // set false in production
 
   // Quick reply buttons permitted from backend (text to display => payload to send; if payload === null, use the same text)
   const QUICK_ALLOWLIST = new Set([
