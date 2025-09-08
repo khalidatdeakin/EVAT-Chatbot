@@ -74,6 +74,7 @@ header{ background:#fff; border-bottom:1px solid var(--border); }
   white-space:pre-wrap;          /* keep real newlines */
   overflow-wrap:break-word;      /* wrap long words/URLs only */
   word-break:normal;
+  hyphens: none;              /* don't auto-hyphenate */
 }
 .user .message{
   background:#0b7b79;
