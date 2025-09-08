@@ -55,27 +55,36 @@ function appendInlineNumberChips(options = [{label:'1', payload:'1'},{label:'2',
 }
 
 /***** CHAT RENDER *****/
-function addMessage(text, who = "bot"){
-  const row = document.createElement("div");
-  row.className = `row ${who}-row`;
+function addMessage(who, text, opts = {}) {
+  const row = document.createElement('div');
+  row.className = 'row ' + who;
 
-  // Add a small brand avatar for bot messages
-  if (who === "bot") {
-    const avatar = document.createElement("div");
-    avatar.className = "avatar bot";
-    avatar.textContent = "⚡";            // same logo as title
-    row.appendChild(avatar);
-  }
-
-  const bubbleWrap = document.createElement("div");
+  const bubbleWrap = document.createElement('div');
   bubbleWrap.className = who;
 
-  const bubble = document.createElement("div");
-  bubble.className = "message";
+  const bubble = document.createElement('div');
+  bubble.className = 'message';
   bubble.textContent = text;
 
   bubbleWrap.appendChild(bubble);
-  row.appendChild(bubbleWrap);
+
+  if (who === 'bot') {
+    // Keep existing bot avatar style/content (unchanged)
+    const avatar = document.createElement('div');
+    avatar.className = 'avatar bot';
+    avatar.setAttribute('aria-hidden', 'true');
+    avatar.textContent = '⚡'; // same as before
+    row.appendChild(avatar);
+    row.appendChild(bubbleWrap);
+  } else {
+    // User: bubble first, avatar on the RIGHT
+    row.appendChild(bubbleWrap);
+    const avatar = document.createElement('div');
+    avatar.className = 'avatar user';
+    avatar.setAttribute('aria-hidden', 'true');
+    avatar.textContent = '🙂';
+    row.appendChild(avatar);
+  }
 
   chatEl.appendChild(row);
   scrollToBottom();
