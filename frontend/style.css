@@ -85,11 +85,12 @@ header{ background:#fff; border-bottom:1px solid var(--border); }
 
 /* Standardize bot bubble width (80% of chat column) */
 /* IMPORTANT: apply to the bot column, not the avatar */
-.bot-row .bot:not(.avatar){
-  flex:0 1 var(--bot-bubble-width);
-  max-width:var(--bot-bubble-width);
+/* Bot bubble width: 80% of chat column */
+.row.bot .bot:not(.avatar){
+  flex: 0 1 var(--bot-bubble-width);
+  max-width: var(--bot-bubble-width);
 }
-.bot-row .message{ width:100%; }
+.row.bot .message{ width: 100%; }
 
 .timestamp{
   align-self:center;
