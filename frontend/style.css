@@ -98,12 +98,19 @@ header{ background:#fff; border-bottom:1px solid var(--border); }
   margin:6px 0 -2px;
 }
 
-/* User message column mirrors bot width */
+/* Do NOT reserve a wide column on the user side */
 .row.user .user:not(.avatar){
-  flex: 0 1 var(--bot-bubble-width);
-  max-width: var(--bot-bubble-width);
+  flex: 0 0 auto;      /* shrink-to-fit */
+  max-width: 80%;      /* only a cap, not a reservation */
 }
-.row.user .message{ width: 100%; }
+
+/* Bubble sizes to content (left-aligned text) with a sensible cap */
+.row.user .message{
+  display: inline-block;
+  width: auto;
+  max-width: 80%;
+  text-align: left;
+}
 
 /* Quick replies (chip) */
 #quick-replies{ display:flex; gap:8px; flex-wrap:wrap; padding:8px 16px; }
