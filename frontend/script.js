@@ -55,7 +55,7 @@ function appendInlineNumberChips(options = [{label:'1', payload:'1'},{label:'2',
 }
 
 /***** CHAT RENDER *****/
-function addMessage(who, text, opts = {}) {
+function addMessage(text, who, opts = {}) {
   const row = document.createElement('div');
   row.className = 'row ' + who;
 
@@ -69,15 +69,15 @@ function addMessage(who, text, opts = {}) {
   bubbleWrap.appendChild(bubble);
 
   if (who === 'bot') {
-    // Keep existing bot avatar style/content (unchanged)
+    // keep existing bot avatar
     const avatar = document.createElement('div');
     avatar.className = 'avatar bot';
     avatar.setAttribute('aria-hidden', 'true');
-    avatar.textContent = '⚡'; // same as before
+    avatar.textContent = '⚡';
     row.appendChild(avatar);
     row.appendChild(bubbleWrap);
   } else {
-    // User: bubble first, avatar on the RIGHT
+    // user: bubble then avatar on the right
     row.appendChild(bubbleWrap);
     const avatar = document.createElement('div');
     avatar.className = 'avatar user';
