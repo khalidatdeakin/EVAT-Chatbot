@@ -309,6 +309,7 @@ function greet(){
   addTimestamp();
   addMessage("Hello! Welcome to Melbourne EV Charging Assistant ⚡\n\nPlease select an option:\n\n1. 🗺️ **Route Planning** – Plan charging stops for your journey\n2. 🚨 **Emergency Charging** – Find nearest stations when battery is low\n3. ⚡ **Charging Preferences** – Find stations by your preferences\n\n**🎯 Type 1, 2, or 3 to continue!**", "bot");
   createQuickReplyButtons(); // initial quick actions
+  appendInlineNumberChips();   // adds 1/2/3 chips under the welcome text
 }
 
 /***** GEO *****/
