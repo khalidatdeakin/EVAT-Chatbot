@@ -31,6 +31,29 @@ function addTimestamp(){
 function scrollToBottom(){ chatContainer.scrollTop = chatContainer.scrollHeight; }
 function autoresize(){ input.style.height = "auto"; input.style.height = (input.scrollHeight) + "px"; }
 
+function appendInlineNumberChips(options = [{label:'1', payload:'1'},{label:'2', payload:'2'},{label:'3', payload:'3'}]) {
+  // Find the most recent bot message bubble
+  const lastBotMsg = chatEl.querySelector('.row.bot:last-of-type .message');
+  if (!lastBotMsg) return;
+
+  // If already added, skip
+  if (lastBotMsg.querySelector('.inline-options')) return;
+
+  const wrap = document.createElement('div');
+  wrap.className = 'inline-options';
+
+  options.forEach(opt => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'chip';
+    btn.textContent = opt.label;        // shows 1 / 2 / 3
+    btn.addEventListener('click', () => sendText(opt.payload)); // sends "1"/"2"/"3"
+    wrap.appendChild(btn);
+  });
+
+  lastBotMsg.appendChild(wrap); // ✅ appended without changing the welcome text
+}
+
 /***** CHAT RENDER *****/
 function addMessage(text, who = "bot"){
   const row = document.createElement("div");
