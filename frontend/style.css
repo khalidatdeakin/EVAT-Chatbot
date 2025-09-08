@@ -200,3 +200,51 @@ header{ background:#fff; border-bottom:1px solid var(--border); }
   :root{ --bot-bubble-width:95%; }
   .sc-metrics{ grid-template-columns:1fr 1fr; }
 }
+
+/* Dynamic user bubble: shrink to fit content, left-aligned text */
+.row.user .message{
+  display: inline-block;
+  width: auto;             /* override any fixed width */
+  max-width: 80%;          /* keep a sensible cap */
+  text-align: left;        /* left-align text per request */
+}
+
+/* Keep user row on the right so avatar sits at the far right */
+.row.user{
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+/* User avatar (bot avatar untouched) */
+.avatar.user{
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+  background: #10b981;   /* green */
+  color: #fff;
+  user-select: none;
+}
+
+/* Inline numeric chips inside the welcome bubble (text unchanged) */
+.inline-options{
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+.inline-options .chip{
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font: inherit;
+}
+.inline-options .chip:hover{
+  filter: brightness(0.98);
+}
