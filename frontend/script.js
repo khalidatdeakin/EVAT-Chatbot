@@ -1,23 +1,21 @@
 /* =========================================================
-   EVAT Chat Frontend – Safe, DOM-only rendering
-   Fixes implemented:
-   1) "Get Directions" button now calls sendMessage(payload)
-   2) Removed duplicate formatters; single fmtDistance/fmtPower
-   3) Greet message uses plain text (no markdown)
-   4) Quick-reply allowlist broadened (configurable)
-   5) Demo renderer gated & scoped
-   6) User avatar added to match existing CSS
+   EVAT Chat Frontend — Safe DOM rendering
+   - Bot Markdown (bold, lists) safely supported
+   - User bubble/avatar appear on the right (via .row.user)
+   - Station cards structured like the screenshot
+   - "Get Directions" sends an intent payload to Rasa
+   - Demo stations gated by DEMO flag
    ========================================================= */
 
 (() => {
   "use strict";
 
-  /***** CONFIG *****/
-  const RASA_REST_URL = "http://localhost:5005/webhooks/rest/webhook"; // update if needed
+  /* ---------- CONFIG ---------- */
+  const RASA_REST_URL = "http://localhost:5005/webhooks/rest/webhook"; // adjust if needed
   const SENDER_ID = "web-" + Math.random().toString(36).slice(2);
-  const DEMO = false; // set false in production
+  const DEMO = true; // set to false for real backend-only behavior
 
-  // Quick reply buttons permitted from backend (text to display => payload to send; if payload === null, use the same text)
+  // Whitelisted quick buttons from backend
   const QUICK_ALLOWLIST = new Set([
     "Get Directions",
     "Show Availability",
@@ -26,44 +24,110 @@
     "Fastest chargers"
   ]);
 
-  /***** DOM *****/
-  const chatEl    = document.getElementById("chat");
-  const quickEl   = document.getElementById("quick-replies");
-  const cardsEl   = document.getElementById("station-cards");
-  const pagerEl   = document.getElementById("pager");
-  const typingEl  = document.getElementById("typing-indicator");
-  const form      = document.getElementById("chat-form");
-  const input     = document.getElementById("user-input");
-  const clearBtn  = document.getElementById("clear-btn");
+  /* ---------- DOM ---------- */
+  const chatEl   = document.getElementById("chat");
+  const quickEl  = document.getElementById("quick-replies");
+  const cardsEl  = document.getElementById("station-cards");
+  const pagerEl  = document.getElementById("pager");
+  const typingEl = document.getElementById("typing-indicator");
+  const form     = document.getElementById("chat-form");
+  const input    = document.getElementById("user-input");
+  const clearBtn = document.getElementById("clear-btn");
 
   if (!chatEl || !form || !input) {
     console.error("Required DOM elements not found. Check IDs in chat.html.");
     return;
   }
 
-  /***** UTIL *****/
+  /* ---------- UTIL ---------- */
   const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
 
   function fmtDistance(meters) {
     if (meters == null || isNaN(meters)) return "–";
     if (meters < 950) return `${Math.round(meters)} m`;
-    return `${(meters/1000).toFixed(1)} km`;
+    return `${(meters / 1000).toFixed(1)} km`;
   }
 
   function fmtPower(kw) {
     if (kw == null || isNaN(kw)) return "–";
-    return `${kw} kW`;
+    // allow strings like "Up to 150" to pass through
+    return typeof kw === "number" ? `${kw} kW` : `${kw} kW`;
   }
 
   function scrollToBottom() {
-    // Keep the latest message/cards in view
-    chatEl.parentElement?.scrollTo({ top: chatEl.parentElement.scrollHeight, behavior: "smooth" });
+    chatEl.parentElement?.scrollTo({
+      top: chatEl.parentElement.scrollHeight,
+      behavior: "smooth"
+    });
   }
 
-  /***** MESSAGE RENDERING *****/
+  /* ---------- Minimal, safe Markdown for BOT only ---------- */
+  function escapeHtml(s) {
+    return s
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+  }
+  function inlineMd(s) {
+    // **bold**
+    return s.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  }
+  function mdToSafeHtml(md) {
+    const lines = String(md ?? "").split("\n");
+    let html = "";
+    let listOpen = null; // "ol" | "ul"
+    const flush = () => {
+      if (listOpen) {
+        html += `</${listOpen}>`;
+        listOpen = null;
+      }
+    };
+    for (const raw of lines) {
+      const line = raw.trimEnd();
+
+      // ordered list: "1. text"
+      let mNum = line.match(/^\s*\d+\.\s+(.*)$/);
+      if (mNum) {
+        const item = inlineMd(escapeHtml(mNum[1]));
+        if (listOpen !== "ol") {
+          flush();
+          html += "<ol>";
+          listOpen = "ol";
+        }
+        html += `<li>${item}</li>`;
+        continue;
+      }
+
+      // unordered list: "- text" or "• text"
+      let mBul = line.match(/^\s*(?:-|•)\s+(.*)$/);
+      if (mBul) {
+        const item = inlineMd(escapeHtml(mBul[1]));
+        if (listOpen !== "ul") {
+          flush();
+          html += "<ul>";
+          listOpen = "ul";
+        }
+        html += `<li>${item}</li>`;
+        continue;
+      }
+
+      if (line.trim() === "") {
+        flush();
+        html += "<br/>";
+        continue;
+      }
+
+      flush();
+      html += inlineMd(escapeHtml(line)) + "<br/>";
+    }
+    flush();
+    return html;
+  }
+
+  /* ---------- Chat bubbles ---------- */
   function bubble(role, text) {
     const row = document.createElement("div");
-    row.className = `row ${role}`;
+    row.className = `row ${role}`; // CSS handles .row.user { flex-direction: row-reverse }
 
     const avatar = document.createElement("div");
     avatar.className = `avatar ${role}`;
@@ -72,7 +136,12 @@
 
     const msg = document.createElement("div");
     msg.className = "message";
-    msg.textContent = text ?? ""; // DOM-safe
+
+    if (role === "bot") {
+      msg.innerHTML = mdToSafeHtml(text);
+    } else {
+      msg.textContent = text ?? "";
+    }
 
     row.appendChild(avatar);
     row.appendChild(msg);
@@ -85,11 +154,10 @@
   }
 
   function setTyping(on) {
-    if (!typingEl) return;
-    typingEl.classList.toggle("hidden", !on);
+    typingEl?.classList.toggle("hidden", !on);
   }
 
-  /***** QUICK REPLIES *****/
+  /* ---------- Quick replies ---------- */
   function clearQuick() {
     if (quickEl) quickEl.innerHTML = "";
   }
@@ -112,52 +180,125 @@
     }
   }
 
-  /***** STATION CARDS *****/
+  /* ---------- Station cards ---------- */
+  function computeStatus(s) {
+    // Prefer explicit s.status; otherwise infer from availability like "3/4"
+    let label = "Available";
+    let kind = "success";
+    if (typeof s?.status === "string") {
+      const t = s.status.toLowerCase();
+      if (t.includes("busy") || t.includes("full") || t.includes("unavailable")) {
+        label = "Busy";
+        kind = "danger";
+      }
+    } else if (typeof s?.availability === "string" && s.availability.includes("/")) {
+      const [a, b] = s.availability.split("/").map((x) => parseInt(x, 10));
+      if (!isNaN(a) && !isNaN(b)) {
+        if (a <= 0) {
+          label = "Busy";
+          kind = "danger";
+        } else {
+          label = "Available";
+          kind = "success";
+        }
+      }
+    }
+    return { label, kind };
+  }
+
   function stationCardEl(s) {
-    // expected fields (best effort): station_id, name, address, distance_m, price, power_kw, availability
     const card = document.createElement("article");
     card.className = "station-card";
     card.setAttribute("role", "group");
     card.setAttribute("aria-label", s?.name || "Charging station");
 
-    const h = document.createElement("h3");
-    h.textContent = s?.name || "Unknown station";
-    card.appendChild(h);
+    // Header: icon + name/provider + status badge
+    const header = document.createElement("div");
+    header.className = "station-header";
 
-    const meta = document.createElement("div");
-    meta.className = "meta";
+    const icon = document.createElement("div");
+    icon.className = "station-icon";
+    icon.textContent = "⚡";
+    header.appendChild(icon);
+
+    const titleWrap = document.createElement("div");
+    titleWrap.className = "station-title-wrap";
+
+    const title = document.createElement("h3");
+    const provider = s?.provider || s?.network || ""; // optional
+    title.textContent = provider
+      ? `${s?.name || "Unknown"} — ${provider}`
+      : (s?.name || "Unknown");
+    titleWrap.appendChild(title);
 
     const addr = document.createElement("div");
-    addr.className = "meta-item";
-    addr.textContent = s?.address || "Address: –";
-    meta.appendChild(addr);
+    addr.className = "station-addr";
+    addr.textContent = s?.address || "";
+    titleWrap.appendChild(addr);
 
-    const dist = document.createElement("div");
-    dist.className = "meta-item";
-    dist.textContent = `Distance: ${fmtDistance(Number(s?.distance_m))}`;
-    meta.appendChild(dist);
+    header.appendChild(titleWrap);
 
-    const power = document.createElement("div");
-    power.className = "meta-item";
-    power.textContent = `Power: ${fmtPower(Number(s?.power_kw))}`;
-    meta.appendChild(power);
+    const { label: statusLabel, kind: statusKind } = computeStatus(s);
+    const badge = document.createElement("span");
+    badge.className = `badge ${statusKind}`;
+    badge.textContent = statusLabel;
+    header.appendChild(badge);
 
-    const price = document.createElement("div");
-    price.className = "meta-item";
-    price.textContent = s?.price ? `Price: ${s.price}` : "Price: –";
-    meta.appendChild(price);
+    card.appendChild(header);
 
-    const avail = document.createElement("div");
-    avail.className = "meta-item";
-    avail.textContent = s?.availability ? `Availability: ${s.availability}` : "Availability: –";
-    meta.appendChild(avail);
+    // Meta grid: Distance | Cost | Power
+    const grid = document.createElement("div");
+    grid.className = "meta-grid";
 
-    card.appendChild(meta);
+    // Distance
+    const distBlock = document.createElement("div");
+    distBlock.className = "meta-block";
+    const distLabel = document.createElement("div");
+    distLabel.className = "label";
+    distLabel.textContent = "Distance";
+    const distValue = document.createElement("div");
+    distValue.className = "value";
+    distValue.textContent = fmtDistance(Number(s?.distance_m));
+    distBlock.appendChild(distLabel);
+    distBlock.appendChild(distValue);
+    grid.appendChild(distBlock);
 
+    // Cost (green-ish positive look; CSS should style .value.positive)
+    const costBlock = document.createElement("div");
+    costBlock.className = "meta-block";
+    const costLabel = document.createElement("div");
+    costLabel.className = "label";
+    costLabel.textContent = "Cost";
+    const costValue = document.createElement("div");
+    costValue.className = "value positive";
+    costValue.textContent = s?.price || s?.cost || "–";
+    costBlock.appendChild(costLabel);
+    costBlock.appendChild(costValue);
+    grid.appendChild(costBlock);
+
+    // Power
+    const powerBlock = document.createElement("div");
+    powerBlock.className = "meta-block";
+    const powerLabel = document.createElement("div");
+    powerLabel.className = "label";
+    powerLabel.textContent = "Power";
+    const powerValue = document.createElement("div");
+    powerValue.className = "value";
+    // accept strings like "Up to 150 kW" or numbers
+    powerValue.textContent =
+      s?.power_kw != null
+        ? (typeof s.power_kw === "number" ? `${s.power_kw} kW` : String(s.power_kw))
+        : (s?.power || "–");
+    powerBlock.appendChild(powerLabel);
+    powerBlock.appendChild(powerValue);
+    grid.appendChild(powerBlock);
+
+    card.appendChild(grid);
+
+    // Actions row
     const actions = document.createElement("div");
     actions.className = "actions";
 
-    // Primary action: send structured intent to Rasa (Fix #1)
     const goBtn = document.createElement("button");
     goBtn.type = "button";
     goBtn.className = "btn primary";
@@ -168,11 +309,12 @@
     });
     actions.appendChild(goBtn);
 
-    // Fallback: open native maps link (optional)
     if (s?.lat && s?.lng) {
       const mapA = document.createElement("a");
       mapA.className = "btn";
-      mapA.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(s.lat + "," + s.lng)}`;
+      mapA.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+        s.lat + "," + s.lng
+      )}`;
       mapA.target = "_blank";
       mapA.rel = "noopener";
       mapA.textContent = "Open in Maps";
@@ -199,7 +341,6 @@
       cardsEl.appendChild(stationCardEl(s));
     }
 
-    // pager
     if (pages > 1) {
       for (let i = 1; i <= pages; i++) {
         const dot = document.createElement("button");
@@ -213,39 +354,29 @@
     scrollToBottom();
   }
 
-  /***** BACKEND I/O *****/
+  /* ---------- Backend I/O ---------- */
   async function sendMessage(text) {
-    // render user message
+    // show user message
     addMessage("user", text);
-
-    // clear composer quick actions
     clearQuick();
-
-    // show typing
     setTyping(true);
 
     try {
       const res = await fetch(RASA_REST_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sender: SENDER_ID,
-          message: text
-        })
+        body: JSON.stringify({ sender: SENDER_ID, message: text })
       });
 
       const data = await res.json();
 
-      // parse responses
       for (const m of data) {
         if (m.text) addMessage("bot", m.text);
 
-        // Rasa "buttons" (Fix #4 – allowlist)
         if (Array.isArray(m.buttons) && m.buttons.length) {
           renderQuickReplies(m.buttons);
         }
 
-        // Custom payload: stations list
         if (m.custom && Array.isArray(m.custom.stations)) {
           renderStations(m.custom.stations);
         }
@@ -258,22 +389,23 @@
     }
   }
 
-  /***** GREETING (Fix #3) *****/
+  /* ---------- Greeting (formatted) ---------- */
   function greet() {
-    addMessage(
-      "bot",
-      [
-        "Hi! I’m EVAT. I can help you find EV charging stations near you.",
-        "",
-        "Try things like:",
-        "• “Nearest fast chargers under $0.45/kWh”",
-        "• “Show availability by Docklands”",
-        "• “Get directions to the cheapest nearby”"
-      ].join("\n")
-    );
+    const md = [
+      "Hello! Welcome to Melbourne EV Charging Assistant ⚡",
+      "",
+      "Please select an option:",
+      "",
+      "1. 🗺️ **Route Planning** – Plan charging stops for your journey",
+      "2. 🚨 **Emergency Charging** – Find nearest stations when battery is low",
+      "3. ⚡ **Charging Preferences** – Find stations by your preferences",
+      "",
+      "**🎯 Type 1, 2, or 3 to continue!**"
+    ].join("\n");
+    addMessage("bot", md);
   }
 
-  /***** FORM & INPUT *****/
+  /* ---------- Form & input ---------- */
   // autoresize textarea
   function autoresize() {
     input.style.height = "auto";
@@ -292,7 +424,7 @@
   // Enter to send / Shift+Enter newline with IME safety
   let isComposing = false;
   input.addEventListener("compositionstart", () => (isComposing = true));
-  input.addEventListener("compositionend",  () => (isComposing = false));
+  input.addEventListener("compositionend", () => (isComposing = false));
   input.addEventListener("keydown", (e) => {
     if (isComposing) return;
     if (e.key === "Enter" && !e.shiftKey) {
@@ -310,15 +442,44 @@
     greet();
   });
 
-  /***** DEMO DATA (Fix #5 – strictly gated) *****/
+  /* ---------- Demo data (turn off by setting DEMO=false) ---------- */
   const DEMO_STATIONS = [
-    { station_id: "STN-001", name: "Spark Hub – Flinders St", address: "123 Flinders St, Melbourne VIC", distance_m: 420,  power_kw: 50, price: "$0.40/kWh", availability: "3/4", lat: -37.8183, lng: 144.9671 },
-    { station_id: "STN-002", name: "Volt Lane – Docklands",    address: "88 Harbour Esplanade, Docklands VIC", distance_m: 1600, power_kw: 150, price: "$0.48/kWh", availability: "2/6", lat: -37.8149, lng: 144.9500 },
-    { station_id: "STN-003", name: "ChargePoint – Carlton",     address: "45 Lygon St, Carlton VIC", distance_m: 2300, power_kw: 22, price: "$0.35/kWh", availability: "5/8", lat: -37.8000, lng: 144.9667 },
-    { station_id: "STN-004", name: "PowerStop – Southbank",     address: "200 City Rd, Southbank VIC", distance_m: 1800, power_kw: 350, price: "$0.55/kWh", availability: "1/4", lat: -37.8226, lng: 144.9650 },
-    { station_id: "STN-005", name: "GreenCharge – Fitzroy",     address: "12 Brunswick St, Fitzroy VIC", distance_m: 3100, power_kw: 11, price: "$0.30/kWh", availability: "7/10", lat: -37.7984, lng: 144.9783 },
-    { station_id: "STN-006", name: "AmpUp – St Kilda",          address: "1 Acland St, St Kilda VIC", distance_m: 5200, power_kw: 50, price: "$0.45/kWh", availability: "4/6", lat: -37.8676, lng: 144.9750 },
-    { station_id: "STN-007", name: "JuiceBox – Richmond",       address: "77 Swan St, Richmond VIC", distance_m: 4000, power_kw: 22, price: "$0.33/kWh", availability: "6/8", lat: -37.8245, lng: 144.9980 }
+    {
+      station_id: "CFX-001",
+      name: "Melbourne Central",
+      provider: "Chargefox",
+      address: "211 La Trobe St, Melbourne VIC 3000",
+      distance_m: 1200,
+      price: "$0.45/kWh",
+      power_kw: "Up to 150",
+      availability: "3/6",
+      status: "available",
+      lat: -37.8103, lng: 144.9631
+    },
+    {
+      station_id: "CFX-002",
+      name: "QVM Car Park",
+      provider: "Chargefox",
+      address: "36 Peel St, North Melbourne VIC 3051",
+      distance_m: 2400,
+      price: "$0.42/kWh + $1/min idle",
+      power_kw: 75,
+      availability: "0/4",
+      status: "busy",
+      lat: -37.8068, lng: 144.9567
+    },
+    {
+      station_id: "EVIE-003",
+      name: "Bourke Street",
+      provider: "Evie",
+      address: "620 Bourke St, Melbourne VIC 3000",
+      distance_m: 800,
+      price: "$0.55/kWh",
+      power_kw: 200,
+      availability: "5/6",
+      status: "available",
+      lat: -37.8156, lng: 144.9601
+    }
   ];
 
   function renderDemoOnce() {
@@ -331,7 +492,7 @@
     ]);
   }
 
-  /***** INIT *****/
+  /* ---------- Init ---------- */
   greet();
   if (DEMO) renderDemoOnce();
 })();
