@@ -251,3 +251,27 @@ header{ background:#fff; border-bottom:1px solid var(--border); }
 .inline-options .chip:hover{
   filter: brightness(0.98);
 }
+
+/* --- stop splitting words inside chat bubbles --- */
+.row .message,
+.row.user .message,
+.row.bot .message{
+  white-space: pre-wrap !important;   /* keep your \n */
+  word-break: normal !important;      /* no breaking inside words */
+  overflow-wrap: break-word !important; /* wrap only when needed */
+  hyphens: none !important;
+}
+
+/* --- let the bubble size to its content (no micro-width columns) --- */
+.row.user .user:not(.avatar),
+.row.bot  .bot:not(.avatar){
+  flex: 0 0 auto !important;   /* don’t reserve/flex-shrink the column */
+  max-width: 80% !important;   /* just a cap */
+}
+
+.row.user .message,
+.row.bot  .message{
+  display: inline-block;
+  width: auto;                 /* natural width */
+  max-width: 100%;             /* respect the column cap above */
+}
