@@ -1,24 +1,47 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>EVAT Chatbot</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Melbourne EV Charging Assistant</title>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <header>EVAT Chatbot</header>
+  <header>
+    <div class="brand">
+      <span class="logo" aria-hidden="true">⚡</span>
+      <div>
+        <div class="title">Melbourne EV Charging Assistant</div>
+        <div class="subtitle">Find charging stations across Melbourne</div>
+      </div>
+    </div>
+  </header>
 
-  <main id="chat-container">
-    <div id="chat"></div>
-    <div id="typing-indicator" class="hidden">EVAT is typing...</div>
+  <main class="shell">
+    <!-- Scrollable conversation -->
+    <div id="chat-container">
+      <div id="chat" role="log" aria-live="polite" aria-label="Conversation"></div>
+    </div>
+
+    <!-- Station cards list -->
+    <section id="station-cards" aria-label="Charging stations"></section>
+    <nav id="pager" aria-label="Pagination"></nav>
+
+    <!-- Quick replies -->
+    <div id="quick-replies" aria-label="Quick actions"></div>
+
+    <!-- Typing indicator -->
+    <div id="typing-indicator" class="hidden">EVAT is typing…</div>
+
+    <!-- Composer -->
+    <form id="chat-form" autocomplete="off">
+      <textarea id="user-input" placeholder="Ask me about charging stations…" rows="1"></textarea>
+      <button id="clear-btn" type="button" title="Clear chat" aria-label="Clear chat">⟲</button>
+      <button id="send-btn" type="submit" title="Send" aria-label="Send">➤</button>
+    </form>
   </main>
-
-  <form id="chat-form" aria-label="Chat input area">
-    <textarea id="user-input" placeholder="Type your message..." rows="1"></textarea>
-    <button type="submit">Send</button>
-    <button type="button" id="clear-btn" title="Clear chat">🗑️</button>
-  </form>
 
   <script src="script.js"></script>
 </body>
