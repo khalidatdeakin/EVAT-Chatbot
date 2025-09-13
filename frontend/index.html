@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Melbourne EV Charging Assistant</title>
+  <title>EVAT — Melbourne EV Charging Assistant</title>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css" />
@@ -38,8 +38,16 @@
     <!-- Composer -->
     <form id="chat-form" autocomplete="off">
       <textarea id="user-input" placeholder="Ask me about charging stations…" rows="1"></textarea>
-      <button id="clear-btn" type="button" title="Clear chat" aria-label="Clear chat">⟲</button>
-      <button id="send-btn" type="submit" title="Send" aria-label="Send">➤</button>
+
+      <button id="clear-btn" type="button" title="Clear chat" aria-label="Clear chat">
+        <span aria-hidden="true">⟲</span>
+        <span class="sr-only">Clear chat</span>
+      </button>
+
+      <button id="send-btn" type="submit" title="Send" aria-label="Send">
+        <span aria-hidden="true">➤</span>
+        <span class="sr-only">Send</span>
+      </button>
     </form>
   </main>
 
