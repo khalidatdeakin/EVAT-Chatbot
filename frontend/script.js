@@ -34,7 +34,20 @@ function addTimestamp(){
 function scrollToBottom(){ chatContainer.scrollTop = chatContainer.scrollHeight; }
 function autoresize(){ input.style.height = "auto"; input.style.height = (input.scrollHeight) + "px"; }
 
-function appendInlineNumberChips(options = [{label:'1', payload:'1'},{label:'2', payload:'2'},{label:'3', payload:'3'}]) {
+/***** Formatting helpers (single source of truth) *****/
+function fmtDistance(km){
+  if (km == null || isNaN(Number(km))) return "—";
+  const n = Number(km);
+  return n < 1 ? `${Math.round(n * 1000)} m` : `${n.toFixed(1)} km`;
+}
+function fmtPower(p){
+  if (p == null) return "—";
+  return (typeof p === "string") ? p : `${p} kW`;
+}
+
+function appendInlineNumberChips(options = [
+  {label:'1', payload:'1'}, {label:'2', payload:'2'}, {label:'3', payload:'3'}
+]) {
   // Find the most recent bot message bubble
   const lastBotMsg = chatEl.querySelector('.row.bot:last-of-type .message');
   if (!lastBotMsg) return;
@@ -54,11 +67,11 @@ function appendInlineNumberChips(options = [{label:'1', payload:'1'},{label:'2',
     wrap.appendChild(btn);
   });
 
-  lastBotMsg.appendChild(wrap); // ✅ appended without changing the welcome text
+  lastBotMsg.appendChild(wrap); // appended without changing the welcome text
 }
 
 /***** CHAT RENDER *****/
-function addMessage(text, who, opts = {}) {
+function addMessage(text, who) {
   const row = document.createElement('div');
   row.className = 'row ' + who;
 
@@ -67,7 +80,7 @@ function addMessage(text, who, opts = {}) {
 
   const bubble = document.createElement('div');
   bubble.className = 'message';
-  bubble.textContent = text;
+  bubble.textContent = text; // safe (no HTML injection)
 
   bubbleWrap.appendChild(bubble);
 
@@ -113,7 +126,6 @@ function createQuickReplyButtons(buttons = [
 function renderStationCards(stations, showAvailability=false){
   cardsEl.innerHTML = "";
   if (!Array.isArray(stations) || stations.length === 0) return;
-
   stations.forEach(s => cardsEl.appendChild(stationCardEl(s, showAvailability)));
 }
 
@@ -179,7 +191,6 @@ function stationCardEl(s, showAvailability) {
   btn.className = "btn-primary";
   btn.textContent = "Get Directions";
   btn.addEventListener("click", () => {
-    // Call your existing send function if present; otherwise log.
     if (typeof sendText === "function") {
       try {
         sendText("/get_directions", {
@@ -204,11 +215,6 @@ function stationCardEl(s, showAvailability) {
 
 function badgeClass(a){ return a==="yes"?"available":a==="no"?"busy":"unknown"; }
 function badgeText(a){ return a==="yes"?"Available":a==="no"?"Busy":"Unknown"; }
-function fmtDistance(km){
-  if (km==null || isNaN(km)) return "—";
-  return km < 10 ? `${Number(km).toFixed(1)} km` : `${Math.round(km)} km`;
-}
-function fmtPower(p){ return p ? (typeof p==="string"?p:`Up to ${p} kW`) : "—"; }
 
 /***** PAGER (illustrative) *****/
 function renderPager(pages=3, current=1){
@@ -243,11 +249,18 @@ async function sendMessage(message){
       metadata: userLocation ? { location: userLocation } : undefined
     };
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12000); // 12s safety
+
     const res = await fetch(RASA_REST_URL, {
       method:"POST",
       headers:{ "Content-Type":"application/json" },
-      body: JSON.stringify(body)
+      body: JSON.stringify(body),
+      signal: controller.signal
     });
+    clearTimeout(timeout);
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
     const data = await res.json(); // array of messages
 
@@ -267,20 +280,20 @@ async function sendMessage(message){
           addMessage(msg.text, "bot");
         }
 
-        // Render suggested buttons returned by Rasa (optional)
+        // Render suggested buttons returned by Rasa (optional, allow only Get Directions)
         if (Array.isArray(msg.buttons)){
-  const allowed = msg.buttons.filter(b =>
-    (b.payload && b.payload.startsWith("/get_directions")) ||
-    (b.title && /get directions/i.test(b.title))
-  ).map(b => ({ label: b.title || "Get Directions", payload: b.payload || "/get_directions" }));
+          const allowed = msg.buttons.filter(b =>
+            (b.payload && b.payload.startsWith("/get_directions")) ||
+            (b.title && /get directions/i.test(b.title))
+          ).map(b => ({ label: b.title || "Get Directions", payload: b.payload || "/get_directions" }));
 
-  if (allowed.length) {
-    createQuickReplyButtons(allowed);
-  } else {
-    // if bot suggested other buttons, ignore them and keep our default
-    createQuickReplyButtons();
-  }
-}
+          if (allowed.length) {
+            createQuickReplyButtons(allowed);
+          } else {
+            // fallback to default
+            createQuickReplyButtons();
+          }
+        }
 
         // Custom payload with stations
         if (msg.custom && Array.isArray(msg.custom.stations)){
@@ -298,7 +311,7 @@ async function sendMessage(message){
   }catch(err){
     console.error(err);
     addTimestamp();
-    addMessage("Sorry, I couldn’t reach the server.", "bot");
+    addMessage("Sorry, I couldn’t reach the server. Please make sure Rasa is running on http://localhost:5005 and try again.", "bot");
   }finally{
     typing(false);
     input.value = "";
@@ -319,9 +332,12 @@ function prettyUserLabel(message){
 function typing(on){ typingEl.classList.toggle("hidden", !on); }
 function greet(){
   addTimestamp();
-  addMessage("Hello! Welcome to Melbourne EV Charging Assistant ⚡\n\nPlease select an option:\n\n1. 🗺️ **Route Planning** – Plan charging stops for your journey\n2. 🚨 **Emergency Charging** – Find nearest stations when battery is low\n3. ⚡ **Charging Preferences** – Find stations by your preferences\n\n**🎯 Press 1, 2, or 3 to continue!**", "bot");
-  createQuickReplyButtons(); // initial quick actions
-  appendInlineNumberChips();   // adds 1/2/3 chips under the welcome text
+  addMessage(
+    "Hello! Welcome to Melbourne EV Charging Assistant ⚡\n\nPlease select an option:\n\n1. 🗺️ **Route Planning** – Plan charging stops for your journey\n2. 🚨 **Emergency Charging** – Find nearest stations when battery is low\n3. ⚡ **Charging Preferences** – Find stations by your preferences\n\n**🎯 Press 1, 2, or 3 to continue!**",
+    "bot"
+  );
+  createQuickReplyButtons();     // initial quick actions
+  appendInlineNumberChips();     // adds 1/2/3 chips under the welcome text
 }
 
 /***** GEO *****/
@@ -343,17 +359,6 @@ function captureLocation(){
 /* ===========================
    DEMO: render fake stations
    =========================== */
-
-function fmtDistance(km) {
-  if (km == null) return "—";
-  const n = Number(km);
-  return n < 1 ? `${Math.round(n * 1000)} m` : `${n.toFixed(1)} km`;
-}
-function fmtPower(p) {
-  if (p == null) return "—";
-  return (typeof p === "string") ? p : `${p} kW`;
-}
-
 const DUMMY_STATIONS = [
   {
     station_id: "cf-melb-central",
@@ -412,7 +417,6 @@ if (FORCE_DEMO || urlParams.get("demo") === "stations") {
   }
 }
 
-
 /***** EVENTS *****/
 window.addEventListener("DOMContentLoaded", ()=>{
   captureLocation();
@@ -440,9 +444,7 @@ input.addEventListener("keydown", (e) => {
   if (e.key === "Enter" && !e.shiftKey) {  // plain Enter
     e.preventDefault();                    // stop newline
     const text = input.value.trim();
-    if (text) {
-      form.requestSubmit();                // triggers your existing submit handler
-    }
+    if (text) form.requestSubmit();        // triggers submit handler
   }
 });
 
