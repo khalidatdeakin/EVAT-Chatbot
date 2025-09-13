@@ -12,6 +12,15 @@
   --chip-border:#e2e8f0;
 }
 
+/* Visually hidden but screen-reader accessible */
+.sr-only{
+  position:absolute !important;
+  width:1px; height:1px;
+  padding:0; margin:-1px;
+  overflow:hidden; clip:rect(0,0,0,0);
+  white-space:nowrap; border:0;
+}
+
 *{ box-sizing:border-box; }
 html,body{ height:100%; }
 body{
@@ -49,7 +58,6 @@ header{ background:#fff; border-bottom:1px solid var(--border); }
 
 /* Chat rows */
 .row{ display:flex; gap:8px; align-items:flex-start; width:100%; }
-.user-row{ justify-content:flex-end; }
 
 /* Avatars */
 .avatar{
@@ -61,7 +69,7 @@ header{ background:#fff; border-bottom:1px solid var(--border); }
   box-shadow:0 1px 2px rgba(0,0,0,.06);
 }
 .avatar.bot{ background:var(--success); color:#fff; }
-.avatar.user{ background:#0b7b79; color:#fff; }
+.avatar.user{ background:var(--success); color:#fff; }
 
 /* Messages */
 .message{
@@ -74,18 +82,16 @@ header{ background:#fff; border-bottom:1px solid var(--border); }
   white-space:pre-wrap;          /* keep real newlines */
   overflow-wrap:break-word;      /* wrap long words/URLs only */
   word-break:normal;
-  hyphens: none;              /* don't auto-hyphenate */
+  hyphens:none;
 }
 .user .message{
-  background:#0b7b79;
+  background:var(--success);
   color:#fff;
-  border-color:#0b7b79;
-  text-align: right;        /* NEW */
+  border-color:var(--success);
+  text-align:right;              /* right-align text inside bubble */
 }
 .bot  .message{ background:#f8fafc; color:var(--text); }
 
-/* Standardize bot bubble width (80% of chat column) */
-/* IMPORTANT: apply to the bot column, not the avatar */
 /* Bot bubble width: 80% of chat column */
 .row.bot .bot:not(.avatar){
   flex: 0 1 var(--bot-bubble-width);
@@ -93,24 +99,29 @@ header{ background:#fff; border-bottom:1px solid var(--border); }
 }
 .row.bot .message{ width: 100%; }
 
+/* Timestamp */
 .timestamp{
   align-self:center;
   font-size:12px; color:var(--muted);
   margin:6px 0 -2px;
 }
 
-/* Do NOT reserve a wide column on the user side */
+/* User column: shrink-to-fit on the right with cap */
+.row.user{
+  justify-content:flex-end;
+  gap:8px;
+}
 .row.user .user:not(.avatar){
-  flex: 0 0 auto;      /* shrink-to-fit */
-  max-width: 80%;      /* only a cap, not a reservation */
+  flex:0 0 auto;
+  max-width:80%;
 }
 
-/* Bubble sizes to content (left-aligned text) with a sensible cap */
+/* Make bubble size to content with sensible cap */
 .row.user .message{
-  display: inline-block;
-  width: auto;
-  max-width: 80%;
-  text-align: left;
+  display:inline-block;
+  width:auto;
+  max-width:80%;
+  text-align:left; /* content left; bubble sits on right */
 }
 
 /* Quick replies (chip) */
@@ -147,9 +158,8 @@ header{ background:#fff; border-bottom:1px solid var(--border); }
 }
 .sc-metrics .label{ display:block; color:#64748b; font-size:12px; }
 
-/* Demo/tweak: make metric values bold and tint cost green */
-.sc-metrics .value { display: block; font-weight: 600; }
-.sc-metrics .value.cost { color: var(--success); }
+.sc-metrics .value { display:block; font-weight:600; }
+.sc-metrics .value.cost { color:var(--success); }
 
 .sc-actions{ display:flex; gap:8px; }
 .btn-primary{
@@ -184,7 +194,7 @@ header{ background:#fff; border-bottom:1px solid var(--border); }
 }
 #user-input{
   flex:1; resize:none; overflow:hidden;
-  border:1px solid var(--border); background:#fff; color:var(--text);
+  border:1px solid var(--border); background:#fff; color:#0f172a;
   border-radius:16px; padding:12px 14px; font:14px/1.45 inherit;
   outline:none;
 }
@@ -197,81 +207,25 @@ header{ background:#fff; border-bottom:1px solid var(--border); }
 }
 #clear-btn{ background:#64748b; }
 #clear-btn:hover{ filter:brightness(.95); }
-#send-btn{ background:var(--success); }    /* green */
+#send-btn{ background:var(--success); }
 #send-btn:hover{ filter:brightness(.95); }
+
+/* Inline numeric chips inside the welcome bubble (text unchanged) */
+.inline-options{
+  display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;
+}
+.inline-options .chip{
+  background:#fff;
+  border:1px solid #e2e8f0;
+  border-radius:999px;
+  padding:6px 12px;
+  cursor:pointer;
+  font:inherit;
+}
+.inline-options .chip:hover{ filter:brightness(.98); }
 
 /* Responsive tweaks */
 @media (max-width:480px){
   :root{ --bot-bubble-width:95%; }
   .sc-metrics{ grid-template-columns:1fr 1fr; }
-}
-
-/* Bubble sizes to content (left-aligned text) with a sensible cap */
-.row.user .message{
-  display: inline-block;
-  width: auto;
-  max-width: 80%;
-  text-align: left;
-}
-
-/* Make the user column shrink to the bubble; keep it on the right */
-.row.user{
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-/* User avatar (bot avatar untouched) */
-.avatar.user{
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  font-size: 18px;
-  background: #10b981;   /* green */
-  color: #fff;
-  user-select: none;
-}
-
-/* Inline numeric chips inside the welcome bubble (text unchanged) */
-.inline-options{
-  display: flex;
-  gap: 8px;
-  margin-top: 10px;
-  flex-wrap: wrap;
-}
-.inline-options .chip{
-  background: #fff;
-  border: 1px solid #e2e8f0;
-  border-radius: 999px;
-  padding: 6px 12px;
-  cursor: pointer;
-  font: inherit;
-}
-.inline-options .chip:hover{
-  filter: brightness(0.98);
-}
-
-/* --- stop splitting words inside chat bubbles --- */
-.row .message,
-.row.user .message,
-.row.bot .message{
-  white-space: pre-wrap !important;   /* keep your \n */
-  word-break: normal !important;      /* no breaking inside words */
-  overflow-wrap: break-word !important; /* wrap only when needed */
-  hyphens: none !important;
-}
-
-/* --- let the bubble size to its content (no micro-width columns) --- */
-.row.user .user:not(.avatar),
-.row.bot  .bot:not(.avatar){
-  flex: 0 0 auto !important;   /* don’t reserve/flex-shrink the column */
-  max-width: 80% !important;   /* just a cap */
-}
-
-.row.user .message,
-.row.bot  .message{
-  display: inline-block;
-  width: auto;                 /* natural width */
-  max-width: 100%;             /* respect the column cap above */
 }
