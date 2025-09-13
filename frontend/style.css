@@ -113,15 +113,15 @@ header{ background:#fff; border-bottom:1px solid var(--border); }
 }
 .row.user .user:not(.avatar){
   flex:0 0 auto;
-  max-width:85%;    /* increased from 80% */
+  max-width:85%;    /* wrapper sets the cap */
 }
 
-/* Make bubble size to content with sensible cap */
+/* User message bubble: natural width, only wraps at wrapper cap */
 .row.user .message{
   display:inline-block;
-  width:auto;
-  max-width:85%;    /* increased from 80% */
-  text-align:left;  /* content left; bubble sits on right */
+  width:fit-content;   /* grow with content */
+  max-width:100%;      /* respect wrapper’s 85% cap */
+  text-align:left;     /* text left; bubble sits on right */
 }
 
 /* Quick replies (chip) */
