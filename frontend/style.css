@@ -80,8 +80,8 @@ header{ background:#fff; border-bottom:1px solid var(--border); }
   box-shadow:0 1px 3px rgba(0,0,0,.06);
   padding:12px 14px;
   white-space:pre-wrap;          /* keep real newlines */
-  overflow-wrap:break-word;      /* wrap long words/URLs only */
-  word-break:normal;
+  word-break:normal;             /* don’t break inside words */
+  overflow-wrap:normal;          /* wrap only at spaces */
   hyphens:none;
 }
 .user .message{
@@ -113,15 +113,15 @@ header{ background:#fff; border-bottom:1px solid var(--border); }
 }
 .row.user .user:not(.avatar){
   flex:0 0 auto;
-  max-width:80%;
+  max-width:85%;    /* increased from 80% */
 }
 
 /* Make bubble size to content with sensible cap */
 .row.user .message{
   display:inline-block;
   width:auto;
-  max-width:80%;
-  text-align:left; /* content left; bubble sits on right */
+  max-width:85%;    /* increased from 80% */
+  text-align:left;  /* content left; bubble sits on right */
 }
 
 /* Quick replies (chip) */
@@ -210,7 +210,7 @@ header{ background:#fff; border-bottom:1px solid var(--border); }
 #send-btn{ background:var(--success); }
 #send-btn:hover{ filter:brightness(.95); }
 
-/* Inline numeric chips inside the welcome bubble (text unchanged) */
+/* Inline numeric chips inside the welcome bubble */
 .inline-options{
   display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;
 }
