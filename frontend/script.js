@@ -70,42 +70,6 @@ function appendInlineNumberChips(options = [
   lastBotMsg.appendChild(wrap); // appended without changing the welcome text
 }
 
-/***** NEW: generic inline chips + preference detector *****/
-// Re-usable inline chip renderer for any set of options
-function appendInlineChips(options) {
-  const lastBotMsg = chatEl.querySelector('.row.bot:last-of-type .message');
-  if (!lastBotMsg || !Array.isArray(options) || !options.length) return;
-
-  // Avoid duplicating chips under the same bubble
-  if (lastBotMsg.querySelector('.inline-options')) return;
-
-  const wrap = document.createElement('div');
-  wrap.className = 'inline-options';
-
-  options.forEach(opt => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'chip';
-    btn.textContent = opt.label;
-    btn.addEventListener('click', () => sendText(opt.payload ?? opt.label));
-    wrap.appendChild(btn);
-  });
-
-  lastBotMsg.appendChild(wrap);
-}
-
-// Detect “Cheapest / Fastest / Premium” prompts and add chips inline
-function addPreferenceChipsIfDetected(text) {
-  if (typeof text !== 'string') return;
-  if (!/(cheapest|fastest|premium)/i.test(text)) return;
-
-  appendInlineChips([
-    { label: 'Cheapest 💰', payload: 'Cheapest' },
-    { label: 'Fastest ⚡',  payload: 'Fastest'  },
-    { label: 'Premium 🌟',  payload: 'Premium'  }
-  ]);
-}
-
 /***** CHAT RENDER *****/
 function addMessage(text, who) {
   const row = document.createElement('div');
@@ -314,11 +278,9 @@ async function sendMessage(message){
         if (msg.text){
           addTimestamp();
           addMessage(msg.text, "bot");
-          // NEW: add preference chips when that prompt appears
-          addPreferenceChipsIfDetected(msg.text);
         }
 
-        // Render suggested buttons returned by Rasa (optional)
+        // Render suggested buttons returned by Rasa (optional, allow only Get Directions)
         if (Array.isArray(msg.buttons)){
           const allowed = msg.buttons.filter(b =>
             (b.payload && b.payload.startsWith("/get_directions")) ||
@@ -328,7 +290,7 @@ async function sendMessage(message){
           if (allowed.length) {
             createQuickReplyButtons(allowed);
           } else {
-            // if bot suggested other buttons, ignore them and keep our default
+            // fallback to default
             createQuickReplyButtons();
           }
         }
@@ -442,7 +404,7 @@ function renderDummyStations() {
   }
 
   container.innerHTML = ""; // clear
-  DUMMY_STATIONS.forEach(s => container.appendChild(stationCardEl(s, true));
+  DUMMY_STATIONS.forEach(s => container.appendChild(stationCardEl(s, true)));
 }
 
 const FORCE_DEMO = false; // set true to always show
